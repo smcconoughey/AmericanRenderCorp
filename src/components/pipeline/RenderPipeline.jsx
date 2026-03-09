@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import {
     buildFullPromptDocument, buildEnvironmentPrompt, buildComponentPrompt,
     buildCompositeInstructions, generateRender, getAIConfig
@@ -29,19 +29,18 @@ const PIPELINE_STEPS = [
     { key: "refine", label: "4. Refine", icon: "✨", desc: "Re-render individual parts" },
 ];
 
-export default function RenderPipeline({ components, sceneNotes, onSceneNotesChange, scaleSetting }) {
+export default function RenderPipeline({ components, sceneNotes, onSceneNotesChange }) {
     const [mode, setMode] = useState("pipeline");
     const [generated, setGenerated] = useState("");
     const [activeStep, setActiveStep] = useState("environment");
     const [loading, setLoading] = useState(false);
     const [renders, setRenders] = useState({});
-    const [selectedCompForRender, setSelectedCompForRender] = useState(null);
     const [renderLog, setRenderLog] = useState([]);
 
     const addLog = (msg) => setRenderLog(prev => [...prev, { time: new Date().toLocaleTimeString(), msg }]);
 
     const generateStructured = (promptMode) => {
-        const text = buildFullPromptDocument(components, sceneNotes, scaleSetting, promptMode);
+        const text = buildFullPromptDocument(components, sceneNotes, promptMode);
         setGenerated(text);
     };
 
@@ -51,12 +50,11 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
             addLog("⚠ No API key configured. Go to Settings to add your Gemini API key.");
             return;
         }
-
         setLoading(true);
         try {
             if (step === "environment") {
                 addLog("🌍 Generating environment render...");
-                const prompt = buildEnvironmentPrompt(sceneNotes, components, scaleSetting);
+                const prompt = buildEnvironmentPrompt(sceneNotes, components);
                 const result = await generateRender(prompt, config);
                 setRenders(prev => ({ ...prev, environment: result }));
                 addLog("✓ Environment render complete");
@@ -64,7 +62,7 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
                 addLog("🏗️ Starting per-component renders...");
                 for (const comp of components) {
                     addLog(`  → Rendering "${comp.name}"...`);
-                    const prompt = buildComponentPrompt(comp, scaleSetting, sceneNotes);
+                    const prompt = buildComponentPrompt(comp);
                     try {
                         const result = await generateRender(prompt, config, comp.refImages);
                         setRenders(prev => ({ ...prev, [`comp_${comp.id}`]: result }));
@@ -83,17 +81,13 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
 
     const renderSingleComponent = async (compId) => {
         const config = getAIConfig();
-        if (!config.apiKey) {
-            addLog("⚠ No API key configured.");
-            return;
-        }
+        if (!config.apiKey) { addLog("⚠ No API key configured."); return; }
         const comp = components.find(c => c.id === compId);
         if (!comp) return;
-
         setLoading(true);
         addLog(`✨ Re-rendering "${comp.name}"...`);
         try {
-            const prompt = buildComponentPrompt(comp, scaleSetting, sceneNotes);
+            const prompt = buildComponentPrompt(comp);
             const result = await generateRender(prompt, config, comp.refImages);
             setRenders(prev => ({ ...prev, [`comp_${comp.id}`]: result }));
             addLog(`✓ "${comp.name}" re-render complete`);
@@ -133,21 +127,16 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
             <div style={{ flex: 1, overflow: "auto", display: "flex" }}>
                 {mode === "pipeline" && (
                     <div style={{ flex: 1, display: "flex", gap: 0 }}>
-                        {/* Pipeline steps */}
+                        {/* Steps */}
                         <div style={{ width: 240, borderRight: "1px solid var(--border-subtle)", padding: 10, display: "flex", flexDirection: "column", gap: 4 }}>
                             {PIPELINE_STEPS.map(step => (
-                                <button
-                                    key={step.key}
-                                    onClick={() => setActiveStep(step.key)}
-                                    style={{
-                                        display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
-                                        background: activeStep === step.key ? "var(--bg-hover)" : "transparent",
-                                        border: activeStep === step.key ? "1px solid var(--accent-dim)" : "1px solid transparent",
-                                        borderRadius: "var(--radius-sm)", cursor: "pointer", textAlign: "left",
-                                        color: "var(--text-primary)", width: "100%",
-                                        transition: "all var(--transition-fast)",
-                                    }}
-                                >
+                                <button key={step.key} onClick={() => setActiveStep(step.key)} style={{
+                                    display: "flex", alignItems: "center", gap: 8, padding: "8px 10px",
+                                    background: activeStep === step.key ? "var(--bg-hover)" : "transparent",
+                                    border: activeStep === step.key ? "1px solid var(--accent-dim)" : "1px solid transparent",
+                                    borderRadius: "var(--radius-sm)", cursor: "pointer", textAlign: "left",
+                                    color: "var(--text-primary)", width: "100%",
+                                }}>
                                     <span style={{ fontSize: 16 }}>{step.icon}</span>
                                     <div>
                                         <div style={{ fontSize: 12, fontWeight: 500 }}>{step.label}</div>
@@ -158,39 +147,26 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
                                     )}
                                 </button>
                             ))}
-
-                            {/* Quick actions */}
-                            <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 4, paddingTop: 8 }}>
-                                <button
-                                    onClick={() => renderStep(activeStep)}
-                                    disabled={loading}
-                                    style={{
-                                        ...btnAccent, width: "100%", padding: "6px 10px",
-                                        opacity: loading ? 0.5 : 1,
-                                    }}
-                                >
+                            <div style={{ marginTop: "auto", paddingTop: 8 }}>
+                                <button onClick={() => renderStep(activeStep)} disabled={loading}
+                                    style={{ ...btnAccent, width: "100%", padding: "6px 10px", opacity: loading ? 0.5 : 1 }}>
                                     {loading ? "⟳ Rendering..." : `▶ Run ${activeStep}`}
                                 </button>
                             </div>
                         </div>
 
-                        {/* Step detail / render output */}
+                        {/* Step content */}
                         <div style={{ flex: 1, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                             {activeStep === "environment" && (
                                 <>
                                     <label style={{ fontSize: 11, color: "var(--text-muted)" }}>
                                         Scene Notes
-                                        <textarea
-                                            value={sceneNotes}
-                                            onChange={e => onSceneNotesChange(e.target.value)}
-                                            rows={3}
-                                            placeholder="Overall scene description, time of day, weather, environment..."
-                                            style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", marginTop: 4 }}
-                                        />
+                                        <textarea value={sceneNotes} onChange={e => onSceneNotesChange(e.target.value)} rows={3}
+                                            placeholder="Overall scene description..." style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", marginTop: 4 }} />
                                     </label>
                                     {renders.environment && (
                                         <div style={{ borderRadius: "var(--radius-md)", overflow: "hidden", border: "1px solid var(--border-default)" }}>
-                                            <img src={renders.environment} alt="Environment render" style={{ width: "100%", display: "block" }} />
+                                            <img src={renders.environment} alt="Environment" style={{ width: "100%", display: "block" }} />
                                         </div>
                                     )}
                                 </>
@@ -199,7 +175,7 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
                             {activeStep === "components" && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                                        Each component will be rendered individually with its reference images and notes.
+                                        Each component renders individually with its reference images, notes, and real-world dimensions in feet.
                                     </div>
                                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
                                         {components.map(comp => (
@@ -213,16 +189,13 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
                                                     <div style={{
                                                         aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center",
                                                         background: comp.color + "22", color: "var(--text-ghost)", fontSize: 11,
-                                                    }}>
-                                                        Not rendered
-                                                    </div>
+                                                    }}>Not rendered</div>
                                                 )}
-                                                <div style={{
-                                                    padding: "4px 8px", fontSize: 10, color: "var(--text-secondary)",
-                                                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                                                }}>
+                                                <div style={{ padding: "4px 8px", fontSize: 10, color: "var(--text-secondary)", display: "flex", justifyContent: "space-between" }}>
                                                     <span>{comp.name}</span>
-                                                    {comp.refImages?.length > 0 && <span style={{ color: "var(--accent)" }}>📷{comp.refImages.length}</span>}
+                                                    <span style={{ color: "var(--text-ghost)", fontFamily: "var(--font-mono)" }}>
+                                                        {comp.width}×{comp.length}×{comp.height}ft
+                                                    </span>
                                                 </div>
                                             </div>
                                         ))}
@@ -233,15 +206,10 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
                             {activeStep === "composite" && (
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>
                                     <div style={{ marginBottom: 8 }}>
-                                        The composite step places all individually rendered components onto the environment base
-                                        at their correct positions and scales from the scene graph.
+                                        Composites all rendered components into the scene at their visual positions and relative scales.
                                     </div>
-                                    <pre style={{
-                                        ...inputStyle, fontSize: 10, fontFamily: "var(--font-mono)",
-                                        whiteSpace: "pre-wrap", lineHeight: 1.5, padding: 10,
-                                        maxHeight: 200, overflowY: "auto",
-                                    }}>
-                                        {buildCompositeInstructions(components, scaleSetting)}
+                                    <pre style={{ ...inputStyle, fontSize: 10, fontFamily: "var(--font-mono)", whiteSpace: "pre-wrap", lineHeight: 1.5, padding: 10, maxHeight: 200, overflowY: "auto" }}>
+                                        {buildCompositeInstructions(components)}
                                     </pre>
                                 </div>
                             )}
@@ -249,32 +217,24 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
                             {activeStep === "refine" && (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                                        Select a component to re-render without affecting others:
+                                        Re-render individual components without affecting others:
                                     </div>
                                     {components.map(comp => (
-                                        <button
-                                            key={comp.id}
-                                            onClick={() => renderSingleComponent(comp.id)}
-                                            disabled={loading}
-                                            style={{
-                                                ...btnSmall, display: "flex", alignItems: "center", gap: 8,
-                                                width: "100%", textAlign: "left", padding: "6px 10px",
-                                            }}
-                                        >
+                                        <button key={comp.id} onClick={() => renderSingleComponent(comp.id)} disabled={loading}
+                                            style={{ ...btnSmall, display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "6px 10px" }}>
                                             <div style={{ width: 10, height: 10, background: comp.color, borderRadius: 2 }} />
                                             <span style={{ flex: 1 }}>{comp.name}</span>
-                                            {renders[`comp_${comp.id}`] && <span style={{ color: "var(--success)", fontSize: 10 }}>✓ rendered</span>}
+                                            <span style={{ fontSize: 9, color: "var(--text-ghost)", fontFamily: "var(--font-mono)" }}>
+                                                {comp.width}×{comp.length}×{comp.height}ft
+                                            </span>
+                                            {renders[`comp_${comp.id}`] && <span style={{ color: "var(--success)", fontSize: 10 }}>✓</span>}
                                         </button>
                                     ))}
                                 </div>
                             )}
 
-                            {/* Render log */}
                             {renderLog.length > 0 && (
-                                <div style={{
-                                    marginTop: "auto", borderTop: "1px solid var(--border-subtle)", paddingTop: 8,
-                                    maxHeight: 100, overflowY: "auto",
-                                }}>
+                                <div style={{ marginTop: "auto", borderTop: "1px solid var(--border-subtle)", paddingTop: 8, maxHeight: 100, overflowY: "auto" }}>
                                     <div style={{ fontSize: 10, color: "var(--text-ghost)", marginBottom: 4 }}>Render Log</div>
                                     {renderLog.map((entry, i) => (
                                         <div key={i} style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", lineHeight: 1.6 }}>
@@ -292,33 +252,17 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
                         <div style={{ display: "flex", gap: 6 }}>
                             <button onClick={() => generateStructured("composite")} style={btnSmall}>Composite Prompt</button>
                             <button onClick={() => generateStructured("percomp")} style={btnSmall}>Per-Component Prompt</button>
-                            <button
-                                onClick={() => { navigator.clipboard.writeText(generated); }}
-                                style={{ ...btnSmall, marginLeft: "auto" }}
-                                disabled={!generated}
-                            >
-                                📋 Copy
-                            </button>
+                            <button onClick={() => { navigator.clipboard.writeText(generated); }}
+                                style={{ ...btnSmall, marginLeft: "auto" }} disabled={!generated}>📋 Copy</button>
                         </div>
                         <label style={{ fontSize: 11, color: "var(--text-muted)" }}>
                             Scene Notes
-                            <textarea
-                                value={sceneNotes}
-                                onChange={e => onSceneNotesChange(e.target.value)}
-                                rows={2}
-                                placeholder="Overall scene description..."
-                                style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", marginTop: 4 }}
-                            />
+                            <textarea value={sceneNotes} onChange={e => onSceneNotesChange(e.target.value)} rows={2}
+                                placeholder="Overall scene description..." style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit", marginTop: 4 }} />
                         </label>
-                        <textarea
-                            value={generated}
-                            onChange={e => setGenerated(e.target.value)}
-                            placeholder="Generate a prompt above, then edit and copy it for use in your AI image generator."
-                            style={{
-                                ...inputStyle, flex: 1, resize: "none", fontFamily: "var(--font-mono)",
-                                fontSize: 11, lineHeight: 1.6,
-                            }}
-                        />
+                        <textarea value={generated} onChange={e => setGenerated(e.target.value)}
+                            placeholder="Generate a prompt above, then edit and copy for your AI image generator."
+                            style={{ ...inputStyle, flex: 1, resize: "none", fontFamily: "var(--font-mono)", fontSize: 11, lineHeight: 1.6 }} />
                     </div>
                 )}
 
@@ -328,22 +272,15 @@ export default function RenderPipeline({ components, sceneNotes, onSceneNotesCha
                             Render Gallery
                         </div>
                         {Object.keys(renders).length === 0 ? (
-                            <div style={{
-                                color: "var(--text-ghost)", fontSize: 12, textAlign: "center", marginTop: 40
-                            }}>
-                                No renders yet. Use the Pipeline tab to generate renders.
+                            <div style={{ color: "var(--text-ghost)", fontSize: 12, textAlign: "center", marginTop: 40 }}>
+                                No renders yet. Use the Pipeline or Prompt Editor to generate renders.
                             </div>
                         ) : (
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                                 {Object.entries(renders).map(([key, src]) => (
-                                    <div key={key} style={{
-                                        borderRadius: "var(--radius-sm)", overflow: "hidden",
-                                        border: "1px solid var(--border-default)", background: "var(--bg-surface)",
-                                    }}>
+                                    <div key={key} style={{ borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border-default)", background: "var(--bg-surface)" }}>
                                         <img src={src} alt={key} style={{ width: "100%", display: "block" }} />
-                                        <div style={{ padding: "4px 6px", fontSize: 9, color: "var(--text-ghost)" }}>
-                                            {key.replace("comp_", "").replace("_", " ")}
-                                        </div>
+                                        <div style={{ padding: "4px 6px", fontSize: 9, color: "var(--text-ghost)" }}>{key.replace("comp_", "")}</div>
                                     </div>
                                 ))}
                             </div>

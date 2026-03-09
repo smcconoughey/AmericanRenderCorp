@@ -1,13 +1,10 @@
 /**
- * AI Renderer Service — handles communication with AI image generation APIs
- * Supports Google Gemini Imagen and can be extended for other providers.
+ * AI Renderer Service — all dimensions in FEET
+ * No pixel/scale conversion needed — components store real-world feet directly.
  */
 
 const STORAGE_KEY = "arc_ai_config";
 
-/**
- * Get saved AI configuration from localStorage
- */
 export function getAIConfig() {
     try {
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -22,67 +19,51 @@ export function getAIConfig() {
     };
 }
 
-/**
- * Save AI configuration to localStorage  
- */
 export function saveAIConfig(config) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
 /**
- * Parse the scale setting string to get pixels-per-unit and unit name
+ * Build environment prompt — describes the empty scene
  */
-function parseScale(scaleSetting) {
-    const match = scaleSetting?.match(/1(ft|m)\s*=\s*(\d+)px/);
-    if (!match) return { unit: "ft", pxPerUnit: 20 };
-    return { unit: match[1], pxPerUnit: parseInt(match[2]) };
-}
-
-/**
- * Build a structured prompt for the entire scene background/environment
- */
-export function buildEnvironmentPrompt(sceneNotes, components, scaleSetting) {
-    const { unit, pxPerUnit } = parseScale(scaleSetting);
-    const sceneWidth = Math.max(...components.map(c => c.x + c.w));
-    const sceneHeight = Math.max(...components.map(c => c.y + c.h));
-    const realWidth = (sceneWidth / pxPerUnit).toFixed(0);
-    const realHeight = (sceneHeight / pxPerUnit).toFixed(0);
+export function buildEnvironmentPrompt(sceneNotes, components) {
+    const maxX = Math.max(...components.map(c => c.x + c.width));
+    const maxY = Math.max(...components.map(c => c.y + c.length));
 
     return `Photorealistic architectural visualization of an outdoor environment.
-Scene dimensions: approximately ${realWidth}${unit} wide by ${realHeight}${unit} deep.
+Scene covers approximately ${maxX.toFixed(0)}ft wide by ${maxY.toFixed(0)}ft deep.
 ${sceneNotes || "Open terrain, clear sky, natural daylight."}
-Camera: Aerial perspective, 30-45° elevation angle, looking north.
+Camera: Elevated perspective, 30-45° angle, looking across the scene.
 Lighting: Natural daylight with soft shadows.
 Style: High-quality architectural visualization, photorealistic.
-Do NOT include any structures or equipment — render ONLY the empty environment/terrain.
-The ground should show appropriate textures (concrete pads, gravel areas, natural terrain).`;
+Render ONLY the empty environment — no structures or equipment.
+Ground should show appropriate terrain textures.`;
 }
 
 /**
- * Build a structured prompt for a single component
+ * Build prompt for a single component — all dimensions in feet
  */
-export function buildComponentPrompt(component, scaleSetting, sceneNotes) {
-    const { unit, pxPerUnit } = parseScale(scaleSetting);
-    const realW = (component.w / pxPerUnit).toFixed(1);
-    const realH = (component.h / pxPerUnit).toFixed(1);
-    const realDepth = component.depth;
-
+export function buildComponentPrompt(component) {
     let prompt = `Photorealistic render of: "${component.name}"
-Real-world dimensions: ${realW}${unit} wide × ${realH}${unit} deep × ${realDepth}${unit} tall.
+Real-world size: ${component.width}ft wide × ${component.length}ft deep × ${component.height}ft tall.
 `;
 
+    if (component.material && component.material !== "Custom") {
+        prompt += `Material: ${component.material}\n`;
+    }
     if (component.notes) {
-        prompt += `Description: ${component.notes}\n`;
+        prompt += `Details: ${component.notes}\n`;
     }
 
-    prompt += `Render on a TRANSPARENT or PLAIN background for compositing.
-Viewing angle: Aerial perspective, 30-45° elevation, consistent with architectural visualization.
-Lighting: Natural daylight from upper-left, matching outdoor scene lighting.
+    prompt += `
+Render on a PLAIN or TRANSPARENT background for compositing.
+Viewing angle: Elevated perspective, 30-45°, consistent with architectural visualization.
+Lighting: Natural daylight from upper-left.
 Style: Photorealistic, materials rendered accurately.
-Scale reference: This object is ${realW}${unit} × ${realH}${unit} × ${realDepth}${unit}.`;
+This is a real-world object — it is exactly ${component.width}ft × ${component.length}ft × ${component.height}ft.`;
 
-    if (component.refImages && component.refImages.length > 0) {
-        prompt += `\n⚠ Reference image(s) provided — match the visual style and details as closely as possible.`;
+    if (component.refImages?.length > 0) {
+        prompt += `\n⚠ Reference image(s) provided — match the appearance closely while maintaining the specified dimensions.`;
     }
 
     return prompt;
@@ -91,29 +72,99 @@ Scale reference: This object is ${realW}${unit} × ${realH}${unit} × ${realDept
 /**
  * Build composite assembly instructions
  */
-export function buildCompositeInstructions(components, scaleSetting) {
-    const { unit, pxPerUnit } = parseScale(scaleSetting);
+export function buildCompositeInstructions(components) {
     const sorted = [...components].sort((a, b) => a.z - b.z);
 
-    const lines = sorted.map((c, i) => {
-        const realX = (c.x / pxPerUnit).toFixed(1);
-        const realY = (c.y / pxPerUnit).toFixed(1);
-        return `${i + 1}. "${c.name}" — place at (${realX}${unit}, ${realY}${unit}), size ${(c.w / pxPerUnit).toFixed(1)}×${(c.h / pxPerUnit).toFixed(1)}${unit}, height ${c.depth}${unit}`;
-    });
+    const lines = sorted.map((c, i) =>
+        `${i + 1}. "${c.name}" — ${c.width}ft × ${c.length}ft × ${c.height}ft tall, positioned at (${c.x}ft, ${c.y}ft from origin)`
+    );
 
     return `COMPOSITE ASSEMBLY INSTRUCTIONS
 ================================
-Place each rendered component onto the environment base at these positions:
+All dimensions in FEET. Place each rendered component at its scene position:
 
 ${lines.join("\n")}
 
-Ensure consistent perspective, lighting direction, and shadow angles across all components.
+The visual layout determines how large/small each component appears in the final render.
+Components further from camera appear smaller. Maintain consistent perspective and lighting across all components.
 Apply final color grading and atmospheric effects for cohesion.`;
 }
 
 /**
+ * Build full prompt document for copy-paste into AI generators
+ */
+export function buildFullPromptDocument(components, sceneNotes, mode = "composite") {
+    const compDescs = components.map((c, i) => {
+        let desc = `[${i + 1}] "${c.name}" — ${c.width}ft wide × ${c.length}ft deep × ${c.height}ft tall, at position (${c.x}ft, ${c.y}ft)`;
+        if (c.material && c.material !== "Custom") desc += `\n    Material: ${c.material}`;
+        if (c.notes) desc += `\n    Details: ${c.notes}`;
+        if (c.refImages?.length) desc += `\n    ⚠ Has ${c.refImages.length} reference image(s)`;
+        return desc;
+    }).join("\n\n");
+
+    if (mode === "composite") {
+        return `ARCHITECTURAL RENDER — COMPOSITE PIPELINE
+==========================================
+ALL DIMENSIONS IN FEET
+
+SCENE OVERVIEW:
+${sceneNotes || "Outdoor test facility, clear day, photorealistic rendering"}
+
+CAMERA: Elevated perspective, 30-45° angle
+LIGHTING: Natural daylight, soft shadows
+STYLE: Photorealistic architectural visualization
+
+COMPONENT MANIFEST:
+${compDescs}
+
+SCALE CONSTRAINTS:
+- All components must maintain their specified real-world dimensions in feet
+- A 20ft shipping container should appear to scale next to a 25ft tall test stand
+- Maintain proper perspective — objects further away appear smaller naturally
+
+VISUAL COMPOSITION:
+- The spatial layout defines how the scene looks from the camera
+- Relative positions and sizes create the depth and perspective
+- Think of this as a film set — everything is positioned for the camera view
+
+COMPOSITING PIPELINE:
+1. Render background/environment (sky, vegetation, terrain)
+2. For each component (sorted by distance from camera):
+   a. Generate at correct real-world scale
+   b. Match lighting direction and shadow angles
+   c. Apply material/texture notes
+3. Final composite: color grade, ambient occlusion, atmospheric haze`;
+    }
+
+    // Per-component mode
+    const perComp = components.map((c, i) =>
+        `--- COMPONENT ${i + 1}: "${c.name}" ---
+Render ISOLATED on transparent background.
+Size: ${c.width}ft wide × ${c.length}ft deep × ${c.height}ft tall
+${c.material && c.material !== "Custom" ? `Material: ${c.material}` : ""}
+${c.notes ? `Details: ${c.notes}` : ""}
+${c.refImages?.length ? "Reference images provided — match closely." : ""}
+Viewing angle: Elevated 30-45°, match main scene camera.
+Lighting: Natural daylight from upper-left.`
+    ).join("\n\n");
+
+    return `ARCHITECTURAL RENDER — PER-COMPONENT PIPELINE
+==============================================
+ALL DIMENSIONS IN FEET
+
+Render each component separately then composite.
+
+${perComp}
+
+COMPOSITE INSTRUCTIONS:
+1. Start with environment/background render
+2. Place each component at its scene position
+3. Scale to match real-world dimensions
+4. Unified shadow + color grading pass`;
+}
+
+/**
  * Generate render via Gemini Imagen API
- * Returns a base64 data URI of the generated image
  */
 export async function generateRender(prompt, config, referenceImages = []) {
     if (!config.apiKey) {
@@ -144,87 +195,7 @@ export async function generateRender(prompt, config, referenceImages = []) {
 
     const data = await response.json();
     const imageBytes = data.predictions?.[0]?.bytesBase64Encoded;
-    if (!imageBytes) {
-        throw new Error("No image data in API response");
-    }
+    if (!imageBytes) throw new Error("No image data in API response");
 
     return `data:image/png;base64,${imageBytes}`;
-}
-
-/**
- * Build a full structured prompt document for manual use
- */
-export function buildFullPromptDocument(components, sceneNotes, scaleSetting, mode = "composite") {
-    const { unit, pxPerUnit } = parseScale(scaleSetting);
-
-    const compDescs = components.map((c, i) => {
-        const realW = (c.w / pxPerUnit).toFixed(1);
-        const realH = (c.h / pxPerUnit).toFixed(1);
-        let desc = `[${i + 1}] "${c.name}" — position: (${(c.x / pxPerUnit).toFixed(1)}${unit}, ${(c.y / pxPerUnit).toFixed(1)}${unit}), footprint: ${realW}×${realH}${unit}, height: ${c.depth}${unit}`;
-        if (c.notes) desc += `\n    Details: ${c.notes}`;
-        if (c.refImages?.length) desc += `\n    ⚠ Has ${c.refImages.length} reference image(s) attached`;
-        return desc;
-    }).join("\n\n");
-
-    if (mode === "composite") {
-        return `ARCHITECTURAL RENDER — COMPOSITE PIPELINE
-==========================================
-
-SCENE OVERVIEW:
-${sceneNotes || "Outdoor test facility, clear day, photorealistic rendering"}
-
-CAMERA: Aerial perspective, 30-45° angle, looking north
-LIGHTING: Natural daylight, soft shadows, golden hour optional
-STYLE: Photorealistic architectural visualization
-
-COMPONENT MANIFEST (render order, back to front):
-${compDescs}
-
-SCALE CONSTRAINTS:
-- All components must maintain relative proportions as defined
-- 1${unit} = ${pxPerUnit}px in the layout
-- Camera distance should show full scene with ~10% margin
-
-COMPOSITING PIPELINE:
-1. Render background/environment (sky, vegetation, terrain)
-2. Render ground plane with gravel/concrete textures
-3. For each component (sorted by Z, then Y):
-   a. Generate component at correct scale relative to scene
-   b. Match lighting direction and shadow angles
-   c. Apply component-specific material/texture notes
-4. Final composite: color grade, ambient occlusion, atmospheric haze`;
-    }
-
-    // Per-component mode
-    const perComp = components.map((c, i) => {
-        const realW = (c.w / pxPerUnit).toFixed(1);
-        const realH = (c.h / pxPerUnit).toFixed(1);
-        return `--- COMPONENT ${i + 1}: "${c.name}" ---
-Render this component ISOLATED on transparent background.
-Dimensions: ${realW}×${realH}${unit} footprint, ${c.depth}${unit} tall
-Viewing angle: Match main scene camera (aerial 30-45°)
-${c.notes ? `Details: ${c.notes}` : ""}
-${c.refImages?.length ? `Reference images provided — match these closely.` : ""}
-Lighting: Match scene lighting direction (sun from upper-left)`;
-    }).join("\n\n");
-
-    return `ARCHITECTURAL RENDER — PER-COMPONENT PIPELINE
-==============================================
-
-This workflow renders each component separately, then composites.
-Each component prompt below should be sent individually.
-
-SCENE CAMERA REFERENCE:
-- Aerial perspective, 30-45° elevation
-- Looking approximately north
-- Scale: 1${unit} = ${pxPerUnit}px
-
-${perComp}
-
-FINAL COMPOSITE INSTRUCTIONS:
-1. Start with environment/background render
-2. Place each component render at its position
-3. Scale each to match footprint dimensions
-4. Add unified shadow pass
-5. Color grade for consistency`;
 }

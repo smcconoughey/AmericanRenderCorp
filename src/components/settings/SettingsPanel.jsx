@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { getAIConfig, saveAIConfig } from "../../services/aiRenderer.js";
 
 const inputStyle = {
@@ -18,7 +18,7 @@ const btnSmall = {
     borderRadius: "var(--radius-sm)", cursor: "pointer",
 };
 
-export default function SettingsPanel({ scaleSetting, onScaleChange, onClose }) {
+export default function SettingsPanel({ onClose }) {
     const [config, setConfig] = useState(getAIConfig());
     const [saved, setSaved] = useState(false);
 
@@ -28,51 +28,24 @@ export default function SettingsPanel({ scaleSetting, onScaleChange, onClose }) 
         setTimeout(() => setSaved(false), 2000);
     };
 
-    const updateConfig = (key, val) => {
-        setConfig(prev => ({ ...prev, [key]: val }));
-        setSaved(false);
-    };
+    const updateConfig = (key, val) => { setConfig(prev => ({ ...prev, [key]: val })); setSaved(false); };
 
     return (
-        <div style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            zIndex: 1000, backdropFilter: "blur(4px)",
-        }}>
-            <div style={{
-                background: "var(--bg-surface)", border: "1px solid var(--border-default)",
-                borderRadius: "var(--radius-lg)", width: 420, maxHeight: "80vh",
-                overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-            }}>
-                {/* Header */}
-                <div style={{
-                    padding: "14px 18px", borderBottom: "1px solid var(--border-subtle)",
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Settings</span>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
+            <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)", width: 420, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+                <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>Settings</span>
                     <button onClick={onClose} style={{ ...btnSmall, padding: "2px 8px" }}>✕</button>
                 </div>
 
                 <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
-                    {/* Scale */}
-                    <div>
-                        <span style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>
-                            Scene Scale
-                        </span>
-                        <div style={{ marginTop: 8 }}>
-                            <label style={labelStyle}>
-                                Scale Setting
-                                <select value={scaleSetting} onChange={e => onScaleChange(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-                                    {["1ft = 10px", "1ft = 20px", "1ft = 40px", "1m = 10px", "1m = 20px", "1m = 40px"].map(s =>
-                                        <option key={s} value={s}>{s}</option>
-                                    )}
-                                </select>
-                            </label>
-                        </div>
+                    {/* Units info */}
+                    <div style={{ padding: "8px 12px", background: "var(--accent-glow)", border: "1px solid var(--accent-dim)", borderRadius: "var(--radius-sm)", fontSize: 12, color: "var(--accent)" }}>
+                        All scene dimensions are in <strong>feet</strong>. No unit conversion needed.
                     </div>
 
-                    {/* AI Configuration */}
-                    <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 16 }}>
+                    {/* AI Config */}
+                    <div>
                         <span style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>
                             AI Rendering Configuration
                         </span>
@@ -84,21 +57,11 @@ export default function SettingsPanel({ scaleSetting, onScaleChange, onClose }) 
                                     <option value="custom">Custom Endpoint</option>
                                 </select>
                             </label>
-
                             <label style={labelStyle}>
                                 API Key
-                                <input
-                                    type="password"
-                                    value={config.apiKey}
-                                    onChange={e => updateConfig("apiKey", e.target.value)}
-                                    placeholder="Enter your API key..."
-                                    style={inputStyle}
-                                />
-                                <span style={{ fontSize: 10, color: "var(--text-ghost)" }}>
-                                    Stored in localStorage only. Never sent to any server.
-                                </span>
+                                <input type="password" value={config.apiKey} onChange={e => updateConfig("apiKey", e.target.value)} placeholder="Enter your API key..." style={inputStyle} />
+                                <span style={{ fontSize: 10, color: "var(--text-ghost)" }}>Stored in localStorage only.</span>
                             </label>
-
                             <label style={labelStyle}>
                                 Model
                                 <select value={config.model} onChange={e => updateConfig("model", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
@@ -106,7 +69,6 @@ export default function SettingsPanel({ scaleSetting, onScaleChange, onClose }) 
                                     <option value="imagen-3.0-fast-generate-001">Imagen 3.0 Fast</option>
                                 </select>
                             </label>
-
                             <label style={labelStyle}>
                                 Resolution
                                 <select value={config.resolution} onChange={e => updateConfig("resolution", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
@@ -118,14 +80,13 @@ export default function SettingsPanel({ scaleSetting, onScaleChange, onClose }) 
                         </div>
                     </div>
 
-                    {/* Save */}
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, paddingTop: 8 }}>
                         <button onClick={onClose} style={btnSmall}>Cancel</button>
                         <button onClick={handleSave} style={{
                             ...btnSmall,
                             background: saved ? "rgba(52,211,153,0.15)" : "var(--accent-glow)",
                             color: saved ? "var(--success)" : "var(--accent)",
-                            borderColor: saved ? "rgba(52,211,153,0.3)" : "var(--accent-dim)"
+                            borderColor: saved ? "rgba(52,211,153,0.3)" : "var(--accent-dim)",
                         }}>
                             {saved ? "✓ Saved" : "Save Settings"}
                         </button>
