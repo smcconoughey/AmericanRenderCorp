@@ -53,29 +53,31 @@ export default function SettingsPanel({ onClose }) {
                             <label style={labelStyle}>
                                 Provider
                                 <select value={config.provider} onChange={e => updateConfig("provider", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-                                    <option value="gemini">Google Gemini Imagen</option>
+                                    <option value="gemini">Google Gemini (Image Generation)</option>
                                     <option value="custom">Custom Endpoint</option>
                                 </select>
                             </label>
                             <label style={labelStyle}>
                                 API Key
-                                <input type="password" value={config.apiKey} onChange={e => updateConfig("apiKey", e.target.value)} placeholder="Enter your API key..." style={inputStyle} />
-                                <span style={{ fontSize: 10, color: "var(--text-ghost)" }}>Stored in localStorage only.</span>
+                                <input type="password" value={config.apiKey} onChange={e => updateConfig("apiKey", e.target.value)} placeholder="Enter your Gemini API key..." style={inputStyle} />
+                                <span style={{ fontSize: 10, color: "var(--text-ghost)" }}>Get a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>aistudio.google.com</a>. Stored in localStorage only.</span>
                             </label>
                             <label style={labelStyle}>
                                 Model
                                 <select value={config.model} onChange={e => updateConfig("model", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-                                    <option value="imagen-4.0-generate-001">Imagen 4.0 Generate</option>
-                                    <option value="imagen-3.0-generate-002">Imagen 3.0 Generate</option>
-                                    <option value="imagen-3.0-fast-generate-001">Imagen 3.0 Fast</option>
+                                    <option value="gemini-2.0-flash-exp-image-generation">Gemini 2.0 Flash Image Gen</option>
+                                    <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
+                                    <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
+                                    <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image</option>
                                 </select>
+                                <span style={{ fontSize: 10, color: "var(--text-ghost)" }}>Uses generateContent with native image output — one prompt, one complete scene.</span>
                             </label>
                             <label style={labelStyle}>
-                                Resolution
+                                Aspect Ratio
                                 <select value={config.resolution} onChange={e => updateConfig("resolution", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-                                    <option value="1024x1024">1024 × 1024 (1:1)</option>
-                                    <option value="1536x1024">1536 × 1024 (3:2)</option>
-                                    <option value="1920x1080">1920 × 1080 (16:9)</option>
+                                    <option value="16:9">16:9 (Landscape)</option>
+                                    <option value="3:2">3:2 (Photo)</option>
+                                    <option value="1:1">1:1 (Square)</option>
                                 </select>
                             </label>
                         </div>

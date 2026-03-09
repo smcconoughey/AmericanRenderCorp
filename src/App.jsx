@@ -35,8 +35,146 @@ export default function App() {
     const [showRuler, setShowRuler] = useState(true);
     const [showDimensions, setShowDimensions] = useState(true);
     const [measureMode, setMeasureMode] = useState(false);
+    const canvasAreaRef = useRef(null);
 
     const selectedComp = components.find(c => c.id === selected);
+
+    /**
+     * Render a CLEAN reference image for the AI on an offscreen canvas.
+     * White background, solid colored 3D isometric blocks — NO text, NO grid, NO labels.
+     * This gives the model a pure layout to transform into photorealism.
+     */
+    const captureCanvas = () => {
+        const visible = components.filter(c => c.visible !== false);
+        if (!visible.length) return null;
+
+        const W = 1024, H = 768;
+        const offscreen = document.createElement("canvas");
+        offscreen.width = W;
+        offscreen.height = H;
+        const ctx = offscreen.getContext("2d");
+
+        // Light background
+        ctx.fillStyle = "#e8e0d4";
+        ctx.fillRect(0, 0, W, H);
+
+        // Compute scene bounds
+        const maxX = Math.max(...visible.map(c => c.x + c.width));
+        const maxY = Math.max(...visible.map(c => c.y + c.length));
+        const maxH = Math.max(...visible.map(c => c.height));
+
+        // Isometric projection params
+        const padding = 60;
+        const sceneWidth = maxX || 80;
+        const sceneDepth = maxY || 60;
+        const sceneH = maxH || 20;
+
+        // Scale to fit canvas with some room for height
+        const isoW = sceneWidth + sceneDepth; // projected width
+        const isoH = (sceneWidth + sceneDepth) * 0.5 + sceneH; // projected height
+        const scale = Math.min((W - padding * 2) / isoW, (H - padding * 2) / isoH);
+
+        // Isometric transform: (x,y,z) -> screen coords
+        const toScreen = (x, y, z) => ({
+            sx: W / 2 + (x - y) * scale * 0.86,
+            sy: H * 0.7 + (x + y) * scale * 0.5 - z * scale,
+        });
+
+        // Sort by depth (back to front)
+        const sorted = [...visible].sort((a, b) => {
+            return (a.x + a.y) - (b.x + b.y);
+        });
+
+        // Draw ground plane
+        const g0 = toScreen(0, 0, 0);
+        const g1 = toScreen(sceneWidth, 0, 0);
+        const g2 = toScreen(sceneWidth, sceneDepth, 0);
+        const g3 = toScreen(0, sceneDepth, 0);
+        ctx.fillStyle = "#d4cfc7";
+        ctx.beginPath();
+        ctx.moveTo(g0.sx, g0.sy);
+        ctx.lineTo(g1.sx, g1.sy);
+        ctx.lineTo(g2.sx, g2.sy);
+        ctx.lineTo(g3.sx, g3.sy);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw each component as an isometric box
+        for (const comp of sorted) {
+            const x = comp.x;
+            const y = comp.y;
+            const w = comp.width;
+            const d = comp.length;
+            const h = comp.height;
+
+            // 8 corners
+            const p = [
+                toScreen(x, y, 0),         // 0: front-left-bottom
+                toScreen(x + w, y, 0),      // 1: front-right-bottom
+                toScreen(x + w, y + d, 0),  // 2: back-right-bottom
+                toScreen(x, y + d, 0),      // 3: back-left-bottom
+                toScreen(x, y, h),          // 4: front-left-top
+                toScreen(x + w, y, h),      // 5: front-right-top
+                toScreen(x + w, y + d, h),  // 6: back-right-top
+                toScreen(x, y + d, h),      // 7: back-left-top
+            ];
+
+            const baseColor = comp.color || "#6688aa";
+
+            // Parse hex color to RGB for shading
+            const r = parseInt(baseColor.slice(1, 3), 16);
+            const g = parseInt(baseColor.slice(3, 5), 16);
+            const b = parseInt(baseColor.slice(5, 7), 16);
+
+            // Top face (lightest)
+            ctx.fillStyle = `rgb(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)})`;
+            ctx.beginPath();
+            ctx.moveTo(p[4].sx, p[4].sy);
+            ctx.lineTo(p[5].sx, p[5].sy);
+            ctx.lineTo(p[6].sx, p[6].sy);
+            ctx.lineTo(p[7].sx, p[7].sy);
+            ctx.closePath();
+            ctx.fill();
+
+            // Right face (medium)
+            ctx.fillStyle = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+            ctx.beginPath();
+            ctx.moveTo(p[1].sx, p[1].sy);
+            ctx.lineTo(p[5].sx, p[5].sy);
+            ctx.lineTo(p[6].sx, p[6].sy);
+            ctx.lineTo(p[2].sx, p[2].sy);
+            ctx.closePath();
+            ctx.fill();
+
+            // Left face (darkest)
+            ctx.fillStyle = `rgb(${Math.max(0, r - 50)}, ${Math.max(0, g - 50)}, ${Math.max(0, b - 50)})`;
+            ctx.beginPath();
+            ctx.moveTo(p[0].sx, p[0].sy);
+            ctx.lineTo(p[4].sx, p[4].sy);
+            ctx.lineTo(p[7].sx, p[7].sy);
+            ctx.lineTo(p[3].sx, p[3].sy);
+            ctx.closePath();
+            ctx.fill();
+
+            // Edges
+            ctx.strokeStyle = "rgba(0,0,0,0.15)";
+            ctx.lineWidth = 1;
+            // Top edges
+            ctx.beginPath();
+            ctx.moveTo(p[4].sx, p[4].sy); ctx.lineTo(p[5].sx, p[5].sy);
+            ctx.lineTo(p[6].sx, p[6].sy); ctx.lineTo(p[7].sx, p[7].sy);
+            ctx.closePath();
+            ctx.stroke();
+            // Vertical edges
+            ctx.beginPath();
+            ctx.moveTo(p[0].sx, p[0].sy); ctx.lineTo(p[4].sx, p[4].sy);
+            ctx.moveTo(p[1].sx, p[1].sy); ctx.lineTo(p[5].sx, p[5].sy);
+            ctx.moveTo(p[2].sx, p[2].sy); ctx.lineTo(p[6].sx, p[6].sy);
+            ctx.stroke();
+        }
+
+        return offscreen.toDataURL("image/png");
+    };
 
     const updateComponent = (id, updated) => {
         setComponents(prev => prev.map(c => c.id === id ? updated : c));
@@ -196,7 +334,7 @@ export default function App() {
 
                 {/* Center */}
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                    <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "var(--bg-deepest)" }}>
+                    <div ref={canvasAreaRef} style={{ flex: 1, position: "relative", overflow: "hidden", background: "var(--bg-deepest)" }}>
                         {canvasMode === "topdown" ? (
                             <TopDownCanvas
                                 components={components} selected={selected} onSelect={setSelected}
@@ -224,7 +362,7 @@ export default function App() {
                         onMouseLeave={e => e.target.style.background = "var(--border-subtle)"} />
 
                     <div style={{ height: bottomHeight, display: "flex", flexDirection: "column", flexShrink: 0, background: "var(--bg-deep)" }}>
-                        <RenderPipeline components={components} sceneNotes={sceneNotes} onSceneNotesChange={setSceneNotes} />
+                        <RenderPipeline components={components} sceneNotes={sceneNotes} onSceneNotesChange={setSceneNotes} captureCanvas={captureCanvas} />
                     </div>
                 </div>
 

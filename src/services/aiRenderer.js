@@ -1,22 +1,40 @@
 /**
- * AI Renderer Service — all dimensions in FEET
- * No pixel/scale conversion needed — components store real-world feet directly.
+ * AI Renderer Service — Full-scene rendering via Gemini generateContent
+ * 
+ * Sends the scene layout as a reference image + text prompt to Gemini,
+ * which transforms it into a photorealistic render while preserving the layout.
  */
 
 const STORAGE_KEY = "arc_ai_config";
 
 export function getAIConfig() {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) return JSON.parse(stored);
-    } catch (e) { /* ignore */ }
-    return {
+    const defaults = {
         provider: "gemini",
         apiKey: "",
-        model: "imagen-4.0-generate-001",
-        resolution: "1024x1024",
+        model: "gemini-3-pro-image-preview",
+        resolution: "16:9",
         quality: "high",
     };
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            const config = { ...defaults, ...JSON.parse(stored) };
+            // Migrate deprecated model names
+            const deprecated = [
+                "imagen-3.0-generate-002", "imagen-3.0-generate-001",
+                "imagen-3.0-fast-generate-001", "imagen-4.0-generate-001",
+                "gemini-2.0-flash-exp",
+                "gemini-2.5-flash-preview-native-audio-dialog",
+                "gemini-2.0-flash-exp-image-generation",
+            ];
+            if (deprecated.includes(config.model)) {
+                config.model = defaults.model;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+            }
+            return config;
+        }
+    } catch (e) { /* ignore */ }
+    return defaults;
 }
 
 export function saveAIConfig(config) {
@@ -24,161 +42,97 @@ export function saveAIConfig(config) {
 }
 
 /**
- * Build environment prompt — describes the empty scene
+ * Build scene prompt — describes what to render
+ * When a reference image is provided, the prompt tells the model to
+ * transform the layout image into a photorealistic scene.
  */
-export function buildEnvironmentPrompt(sceneNotes, components) {
-    const maxX = Math.max(...components.map(c => c.x + c.width));
-    const maxY = Math.max(...components.map(c => c.y + c.length));
+export function buildScenePrompt(components, sceneNotes, hasReferenceImage = false) {
+    if (!components.length) return "Generate a photorealistic outdoor environment with flat terrain and clear sky.";
 
-    return `Photorealistic architectural visualization of an outdoor environment.
-Scene covers approximately ${maxX.toFixed(0)}ft wide by ${maxY.toFixed(0)}ft deep.
-${sceneNotes || "Open terrain, clear sky, natural daylight."}
-Camera: Elevated perspective, 30-45° angle, looking across the scene.
-Lighting: Natural daylight with soft shadows.
-Style: High-quality architectural visualization, photorealistic.
-Render ONLY the empty environment — no structures or equipment.
-Ground should show appropriate terrain textures.`;
-}
+    const visibleComps = components.filter(c => c.visible !== false);
 
-/**
- * Build prompt for a single component — all dimensions in feet
- */
-export function buildComponentPrompt(component) {
-    let prompt = `Photorealistic render of: "${component.name}"
-Real-world size: ${component.width}ft wide × ${component.length}ft deep × ${component.height}ft tall.
-`;
+    const compDescs = visibleComps
+        .map(c => {
+            let desc = `• "${c.name}"`;
+            if (c.material && c.material !== "Custom") desc += ` (${c.material})`;
+            if (c.notes) desc += ` — ${c.notes}`;
+            return desc;
+        }).join("\n");
 
-    if (component.material && component.material !== "Custom") {
-        prompt += `Material: ${component.material}\n`;
-    }
-    if (component.notes) {
-        prompt += `Details: ${component.notes}\n`;
-    }
+    if (hasReferenceImage) {
+        return `Transform this layout diagram into a photorealistic architectural visualization.
 
-    prompt += `
-Render on a PLAIN or TRANSPARENT background for compositing.
-Viewing angle: Elevated perspective, 30-45°, consistent with architectural visualization.
-Lighting: Natural daylight from upper-left.
-Style: Photorealistic, materials rendered accurately.
-This is a real-world object — it is exactly ${component.width}ft × ${component.length}ft × ${component.height}ft.`;
+The attached image shows the spatial layout and arrangement of components. Preserve the exact positions, sizes, and spatial relationships shown.
 
-    if (component.refImages?.length > 0) {
-        prompt += `\n⚠ Reference image(s) provided — match the appearance closely while maintaining the specified dimensions.`;
-    }
+${sceneNotes || "This is an outdoor test facility with flat terrain, clear sky, and natural daylight."}
 
-    return prompt;
-}
-
-/**
- * Build composite assembly instructions
- */
-export function buildCompositeInstructions(components) {
-    const sorted = [...components].sort((a, b) => a.z - b.z);
-
-    const lines = sorted.map((c, i) =>
-        `${i + 1}. "${c.name}" — ${c.width}ft × ${c.length}ft × ${c.height}ft tall, positioned at (${c.x}ft, ${c.y}ft from origin)`
-    );
-
-    return `COMPOSITE ASSEMBLY INSTRUCTIONS
-================================
-All dimensions in FEET. Place each rendered component at its scene position:
-
-${lines.join("\n")}
-
-The visual layout determines how large/small each component appears in the final render.
-Components further from camera appear smaller. Maintain consistent perspective and lighting across all components.
-Apply final color grading and atmospheric effects for cohesion.`;
-}
-
-/**
- * Build full prompt document for copy-paste into AI generators
- */
-export function buildFullPromptDocument(components, sceneNotes, mode = "composite") {
-    const compDescs = components.map((c, i) => {
-        let desc = `[${i + 1}] "${c.name}" — ${c.width}ft wide × ${c.length}ft deep × ${c.height}ft tall, at position (${c.x}ft, ${c.y}ft)`;
-        if (c.material && c.material !== "Custom") desc += `\n    Material: ${c.material}`;
-        if (c.notes) desc += `\n    Details: ${c.notes}`;
-        if (c.refImages?.length) desc += `\n    ⚠ Has ${c.refImages.length} reference image(s)`;
-        return desc;
-    }).join("\n\n");
-
-    if (mode === "composite") {
-        return `ARCHITECTURAL RENDER — COMPOSITE PIPELINE
-==========================================
-ALL DIMENSIONS IN FEET
-
-SCENE OVERVIEW:
-${sceneNotes || "Outdoor test facility, clear day, photorealistic rendering"}
-
-CAMERA: Elevated perspective, 30-45° angle
-LIGHTING: Natural daylight, soft shadows
-STYLE: Photorealistic architectural visualization
-
-COMPONENT MANIFEST:
+The scene contains these components:
 ${compDescs}
 
-SCALE CONSTRAINTS:
-- All components must maintain their specified real-world dimensions in feet
-- A 20ft shipping container should appear to scale next to a 25ft tall test stand
-- Maintain proper perspective — objects further away appear smaller naturally
-
-VISUAL COMPOSITION:
-- The spatial layout defines how the scene looks from the camera
-- Relative positions and sizes create the depth and perspective
-- Think of this as a film set — everything is positioned for the camera view
-
-COMPOSITING PIPELINE:
-1. Render background/environment (sky, vegetation, terrain)
-2. For each component (sorted by distance from camera):
-   a. Generate at correct real-world scale
-   b. Match lighting direction and shadow angles
-   c. Apply material/texture notes
-3. Final composite: color grade, ambient occlusion, atmospheric haze`;
+IMPORTANT INSTRUCTIONS:
+- Keep the same layout, positions, and relative sizes as shown in the reference image
+- Make everything photorealistic — real materials, textures, lighting, shadows
+- DO NOT add any text, labels, dimensions, or annotations to the image
+- DO NOT add measurement lines or dimension markers
+- Natural outdoor environment with appropriate terrain and vegetation
+- Elevated camera angle, looking across the full scene`;
     }
 
-    // Per-component mode
-    const perComp = components.map((c, i) =>
-        `--- COMPONENT ${i + 1}: "${c.name}" ---
-Render ISOLATED on transparent background.
-Size: ${c.width}ft wide × ${c.length}ft deep × ${c.height}ft tall
-${c.material && c.material !== "Custom" ? `Material: ${c.material}` : ""}
-${c.notes ? `Details: ${c.notes}` : ""}
-${c.refImages?.length ? "Reference images provided — match closely." : ""}
-Viewing angle: Elevated 30-45°, match main scene camera.
-Lighting: Natural daylight from upper-left.`
-    ).join("\n\n");
+    // No reference image — text-only prompt
+    return `Generate a photorealistic architectural visualization of this facility.
 
-    return `ARCHITECTURAL RENDER — PER-COMPONENT PIPELINE
-==============================================
-ALL DIMENSIONS IN FEET
+${sceneNotes || "Outdoor test facility on flat terrain, clear sky, natural daylight."}
 
-Render each component separately then composite.
+The scene contains:
+${compDescs}
 
-${perComp}
-
-COMPOSITE INSTRUCTIONS:
-1. Start with environment/background render
-2. Place each component at its scene position
-3. Scale to match real-world dimensions
-4. Unified shadow + color grading pass`;
+Camera: Elevated perspective, 30-40° angle, showing the full layout.
+Lighting: Natural daylight with soft shadows.
+Style: Photorealistic architectural visualization.
+IMPORTANT: DO NOT add any text, labels, dimensions, or annotations. Render only the physical scene.`;
 }
 
 /**
- * Generate render via Gemini Imagen API
+ * Build full prompt document for copy-paste
  */
-export async function generateRender(prompt, config, referenceImages = []) {
+export function buildFullPromptDocument(components, sceneNotes) {
+    return buildScenePrompt(components, sceneNotes, false);
+}
+
+/**
+ * Generate a scene render via Gemini generateContent API.
+ * Optionally accepts a reference image (base64 data URL) that the model
+ * will use as a layout guide.
+ */
+export async function generateSceneRender(prompt, config, referenceImageDataUrl = null) {
     if (!config.apiKey) {
         throw new Error("API key not configured. Go to Settings to add your Gemini API key.");
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:predict`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`;
+
+    // Build parts array — reference image first (if provided), then text
+    const parts = [];
+
+    if (referenceImageDataUrl) {
+        // Extract base64 data and mime type from data URL
+        const match = referenceImageDataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+            parts.push({
+                inlineData: {
+                    mimeType: match[1],
+                    data: match[2],
+                },
+            });
+        }
+    }
+
+    parts.push({ text: prompt });
 
     const body = {
-        instances: [{ prompt }],
-        parameters: {
-            sampleCount: 1,
-            aspectRatio: config.resolution === "1024x1024" ? "1:1" :
-                config.resolution === "1536x1024" ? "3:2" : "16:9",
+        contents: [{ parts }],
+        generationConfig: {
+            responseModalities: ["IMAGE", "TEXT"],
         },
     };
 
@@ -193,12 +147,30 @@ export async function generateRender(prompt, config, referenceImages = []) {
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API request failed with status ${response.status}`);
+        const msg = errorData.error?.message || `API request failed (${response.status})`;
+        throw new Error(msg);
     }
 
     const data = await response.json();
-    const imageBytes = data.predictions?.[0]?.bytesBase64Encoded;
-    if (!imageBytes) throw new Error("No image data in API response");
 
-    return `data:image/png;base64,${imageBytes}`;
+    // Extract image from response
+    const responseParts = data.candidates?.[0]?.content?.parts || [];
+    let imageData = null;
+    let textResponse = "";
+
+    for (const part of responseParts) {
+        if (part.inlineData?.data) {
+            const mimeType = part.inlineData.mimeType || "image/png";
+            imageData = `data:${mimeType};base64,${part.inlineData.data}`;
+        }
+        if (part.text) {
+            textResponse += part.text;
+        }
+    }
+
+    if (!imageData) {
+        throw new Error(textResponse || "No image generated. The model may have refused the request.");
+    }
+
+    return { image: imageData, text: textResponse };
 }
