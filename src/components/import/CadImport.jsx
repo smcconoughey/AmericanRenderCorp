@@ -40,6 +40,37 @@ function guessPresetMaterial(name) {
     return "Custom";
 }
 
+/**
+ * Compute the best height for a body using volume data.
+ * 
+ * Bounding box height can be misleading — e.g. a 2ft thick concrete pad
+ * with walls makes the bbox 8ft tall. The volume tells the truth:
+ *   effective_height = volume / (width × length)
+ * 
+ * For solid/filled bodies (concrete, containers), effective height is accurate.
+ * For frame/open structures (test stands), bounding box height is correct
+ * because the body is mostly air — volume-derived height is much smaller.
+ * 
+ * Heuristic: if bbox_height > 3× effective_height, the body has features
+ * extending beyond its main mass → use effective_height instead.
+ */
+function bestHeight(bboxW, bboxL, bboxH, volumeFt3) {
+    if (!volumeFt3 || !bboxW || !bboxL) return bboxH;
+
+    const effectiveH = volumeFt3 / (bboxW * bboxL);
+
+    // If bbox height is more than 3× the volume-implied height,
+    // the bbox is inflated by protruding features → use volume height.
+    // Using 3× (not 2×) to avoid false positives on hollow bodies
+    // like shipping containers whose volume is small relative to bbox.
+    if (bboxH > effectiveH * 3) {
+        return Math.round(effectiveH * 100) / 100;
+    }
+
+    // Otherwise bbox height is trustworthy
+    return bboxH;
+}
+
 export default function CadImport({ onImport, onClose }) {
     const [step, setStep] = useState("upload"); // upload | parsed | review
     const [bodies, setBodies] = useState([]);
@@ -64,18 +95,26 @@ export default function CadImport({ onImport, onClose }) {
                     // Fusion 360 export JSON
                     const data = JSON.parse(ev.target.result);
                     if (data.source === "fusion360" || data.components) {
-                        parsed = (data.components || []).map(c => ({
-                            name: c.name,
-                            width: c.width || 10,
-                            length: c.length || 8,
-                            height: c.height || 8,
-                            x: c.x || 0,
-                            y: c.y || 0,
-                            material: c.material ? guessPresetMaterial(c.material) : guessPresetMaterial(c.name),
-                            source: "fusion360",
-                            volume: c.volume_ft3,
-                            cadComponent: c.component,
-                        }));
+                        parsed = (data.components || []).map(c => {
+                            const width = c.width || 10;
+                            const length = c.length || 8;
+                            const bboxH = c.height || 8;
+
+                            // Use volume to correct misleading bbox heights
+                            const height = bestHeight(width, length, bboxH, c.volume_ft3);
+
+                            return {
+                                name: c.name,
+                                width, length, height,
+                                bboxHeight: bboxH,
+                                x: c.x || 0,
+                                y: c.y || 0,
+                                material: c.material ? guessPresetMaterial(c.material) : guessPresetMaterial(c.name),
+                                source: "fusion360",
+                                volume: c.volume_ft3,
+                                cadComponent: c.component,
+                            };
+                        });
                         setFileInfo({
                             type: "Fusion 360 Export",
                             name: data.designName || file.name,
@@ -374,14 +413,19 @@ export default function CadImport({ onImport, onClose }) {
                                                             borderColor: body.needsManualDims ? "rgba(251,191,36,0.3)" : "var(--border-default)",
                                                         }} />
                                                 </td>
-                                                <td style={{ padding: "4px 2px", textAlign: "center" }}>
+                                                <td style={{ padding: "4px 2px", textAlign: "center" }}
+                                                    title={body.bboxHeight && body.bboxHeight !== body.height ? `Bbox: ${body.bboxHeight}ft → Volume-corrected: ${body.height}ft` : undefined}>
                                                     <input type="number" step="0.5" value={body.height}
                                                         onChange={e => updateBody(i, "height", +e.target.value)}
                                                         style={{
                                                             ...inputStyle, width: 52, fontSize: 10, padding: "2px 4px", textAlign: "center",
                                                             fontFamily: "var(--font-mono)",
-                                                            background: body.needsManualDims ? "rgba(251,191,36,0.1)" : "var(--bg-deep)",
-                                                            borderColor: body.needsManualDims ? "rgba(251,191,36,0.3)" : "var(--border-default)",
+                                                            background: body.bboxHeight && body.bboxHeight !== body.height
+                                                                ? "rgba(52,211,153,0.12)"
+                                                                : body.needsManualDims ? "rgba(251,191,36,0.1)" : "var(--bg-deep)",
+                                                            borderColor: body.bboxHeight && body.bboxHeight !== body.height
+                                                                ? "rgba(52,211,153,0.3)"
+                                                                : body.needsManualDims ? "rgba(251,191,36,0.3)" : "var(--border-default)",
                                                         }} />
                                                 </td>
                                                 <td style={{ padding: "4px 2px", textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-ghost)" }}>

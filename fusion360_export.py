@@ -46,23 +46,25 @@ def run(context):
                 # Convert cm to feet (Fusion stores internally in cm)
                 cm_to_ft = 1.0 / 30.48
                 
-                width = abs(max_pt.x - min_pt.x) * cm_to_ft   # X extent
-                length = abs(max_pt.y - min_pt.y) * cm_to_ft   # Y extent
-                height = abs(max_pt.z - min_pt.z) * cm_to_ft   # Z extent
+                # Fusion 360 coordinate system: X = right, Y = UP, Z = forward
+                # Scene Composer: width = left-right, length = front-back (ground), height = vertical
+                width  = abs(max_pt.x - min_pt.x) * cm_to_ft   # X extent → width
+                height = abs(max_pt.y - min_pt.y) * cm_to_ft   # Y extent → height (vertical!)
+                length = abs(max_pt.z - min_pt.z) * cm_to_ft   # Z extent → length (ground depth)
                 
-                # Center position in feet
-                cx = (min_pt.x + max_pt.x) / 2.0 * cm_to_ft
-                cy = (min_pt.y + max_pt.y) / 2.0 * cm_to_ft
-                cz = min_pt.z * cm_to_ft  # Use bottom of bounding box for Z
+                # Top-down position uses X and Z (the ground plane)
+                pos_x = min_pt.x * cm_to_ft     # X position on ground
+                pos_y = min_pt.z * cm_to_ft     # Z position on ground (Z = forward/back in Fusion)
+                ground_z = min_pt.y * cm_to_ft  # Y = vertical base height
                 
                 body_data = {
                     "name": body.name,
                     "width": round(width, 2),
                     "length": round(length, 2),
                     "height": round(height, 2),
-                    "x": round(cx - width / 2, 2),  # Convert center to corner position
-                    "y": round(cy - length / 2, 2),
-                    "z": round(cz, 2),
+                    "x": round(pos_x, 2),
+                    "y": round(pos_y, 2),
+                    "z": round(ground_z, 2),
                     "component": component.name if component.name != root.name else "",
                     "material": body.material.name if body.material else "",
                     "volume_ft3": round(body.volume * (cm_to_ft ** 3), 4),

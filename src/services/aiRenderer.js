@@ -13,7 +13,7 @@ export function getAIConfig() {
     return {
         provider: "gemini",
         apiKey: "",
-        model: "imagen-3.0-generate-002",
+        model: "imagen-4.0-generate-001",
         resolution: "1024x1024",
         quality: "high",
     };
@@ -171,7 +171,7 @@ export async function generateRender(prompt, config, referenceImages = []) {
         throw new Error("API key not configured. Go to Settings to add your Gemini API key.");
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:predict?key=${config.apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:predict`;
 
     const body = {
         instances: [{ prompt }],
@@ -184,7 +184,10 @@ export async function generateRender(prompt, config, referenceImages = []) {
 
     const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": config.apiKey,
+        },
         body: JSON.stringify(body),
     });
 

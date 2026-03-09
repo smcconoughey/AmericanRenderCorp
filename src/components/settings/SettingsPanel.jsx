@@ -65,6 +65,7 @@ export default function SettingsPanel({ onClose }) {
                             <label style={labelStyle}>
                                 Model
                                 <select value={config.model} onChange={e => updateConfig("model", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+                                    <option value="imagen-4.0-generate-001">Imagen 4.0 Generate</option>
                                     <option value="imagen-3.0-generate-002">Imagen 3.0 Generate</option>
                                     <option value="imagen-3.0-fast-generate-001">Imagen 3.0 Fast</option>
                                 </select>
