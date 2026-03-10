@@ -29,7 +29,7 @@ export default function TopDownCanvas({
         ctx.save();
         ctx.scale(dpr, dpr);
         ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = "#080814";
+        ctx.fillStyle = "#f5f5f0";
         ctx.fillRect(0, 0, W, H);
 
         ctx.save();
@@ -44,7 +44,7 @@ export default function TopDownCanvas({
 
         // Minor grid (1ft)
         if (zoom > 3) {
-            ctx.strokeStyle = "#0e0e22";
+            ctx.strokeStyle = "#e8e8e0";
             ctx.lineWidth = 0.3 / zoom;
             for (let x = Math.floor(gridStartX); x <= gridEndX; x++) {
                 ctx.beginPath(); ctx.moveTo(x, gridStartY); ctx.lineTo(x, gridEndY); ctx.stroke();
@@ -55,7 +55,7 @@ export default function TopDownCanvas({
         }
 
         // 5ft grid
-        ctx.strokeStyle = "#14142e";
+        ctx.strokeStyle = "#d8d8d0";
         ctx.lineWidth = 0.5 / zoom;
         for (let x = Math.floor(gridStartX / 5) * 5; x <= gridEndX; x += 5) {
             ctx.beginPath(); ctx.moveTo(x, gridStartY); ctx.lineTo(x, gridEndY); ctx.stroke();
@@ -65,7 +65,7 @@ export default function TopDownCanvas({
         }
 
         // 10ft grid
-        ctx.strokeStyle = "#1e1e42";
+        ctx.strokeStyle = "#c8c8c0";
         ctx.lineWidth = 0.8 / zoom;
         for (let x = Math.floor(gridStartX / 10) * 10; x <= gridEndX; x += 10) {
             ctx.beginPath(); ctx.moveTo(x, gridStartY); ctx.lineTo(x, gridEndY); ctx.stroke();
@@ -75,7 +75,7 @@ export default function TopDownCanvas({
         }
 
         // Origin crosshair
-        ctx.strokeStyle = "#2a2a5e";
+        ctx.strokeStyle = "#b0b0a8";
         ctx.lineWidth = 1.2 / zoom;
         ctx.beginPath(); ctx.moveTo(gridStartX, 0); ctx.lineTo(gridEndX, 0); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, gridStartY); ctx.lineTo(0, gridEndY); ctx.stroke();
@@ -98,16 +98,16 @@ export default function TopDownCanvas({
             ctx.fillRect(comp.x, comp.y, comp.width, comp.length);
 
             // Border
-            ctx.strokeStyle = isSelected ? "#ff6b35" : isHovered ? "#ff6b3588" : comp.color;
+            ctx.strokeStyle = isSelected ? "#2b6cb0" : isHovered ? "#2b6cb088" : "#555";
             ctx.lineWidth = isSelected ? 2 / zoom : isHovered ? 1.5 / zoom : 0.8 / zoom;
             ctx.strokeRect(comp.x, comp.y, comp.width, comp.length);
 
             // Selection glow
             if (isSelected) {
                 ctx.save();
-                ctx.shadowColor = "#ff6b35";
+                ctx.shadowColor = "#2b6cb0";
                 ctx.shadowBlur = 6 / zoom;
-                ctx.strokeStyle = "#ff6b3566";
+                ctx.strokeStyle = "#2b6cb066";
                 ctx.lineWidth = 0.8 / zoom;
                 ctx.setLineDash([0.5, 0.5]);
                 ctx.strokeRect(comp.x - 0.3, comp.y - 0.3, comp.width + 0.6, comp.length + 0.6);
@@ -120,18 +120,18 @@ export default function TopDownCanvas({
             ctx.font = `500 ${labelSize}px 'JetBrains Mono', monospace`;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            const label = comp.name.length > 20 ? comp.name.slice(0, 18) + "…" : comp.name;
+            const label = comp.name.length > 20 ? comp.name.slice(0, 18) + "..." : comp.name;
             // text shadow
-            ctx.fillStyle = "#000000bb";
+            ctx.fillStyle = "#ffffffbb";
             ctx.fillText(label, comp.x + comp.width / 2 + 0.04, comp.y + comp.length / 2 + 0.04);
-            ctx.fillStyle = "#e8e8f0";
+            ctx.fillStyle = "#1a202c";
             ctx.fillText(label, comp.x + comp.width / 2, comp.y + comp.length / 2);
 
             // Dimension labels for selected/hovered
             if ((isSelected || isHovered) && showDimensions) {
                 const dimSize = Math.max(0.6, labelSize * 0.7);
                 ctx.font = `400 ${dimSize}px 'JetBrains Mono', monospace`;
-                ctx.fillStyle = "#ff6b35cc";
+                ctx.fillStyle = "#2b6cb0cc";
 
                 // Width label (below)
                 ctx.textAlign = "center";
@@ -145,8 +145,8 @@ export default function TopDownCanvas({
                 ctx.restore();
 
                 // Height label (above)
-                ctx.fillStyle = "#ff6b3588";
-                ctx.fillText(`↕${comp.height}ft`, comp.x + comp.width / 2, comp.y - dimSize);
+                ctx.fillStyle = "#2b6cb088";
+                ctx.fillText(`h:${comp.height}ft`, comp.x + comp.width / 2, comp.y - dimSize);
             }
 
             // Ref image indicator
@@ -154,8 +154,8 @@ export default function TopDownCanvas({
                 const indicatorSize = Math.max(0.8, labelSize * 0.8);
                 ctx.font = `${indicatorSize}px sans-serif`;
                 ctx.textAlign = "right";
-                ctx.fillStyle = "#ff6b35";
-                ctx.fillText("📷", comp.x + comp.width - 0.2, comp.y + indicatorSize * 0.8);
+                ctx.fillStyle = "#2b6cb0";
+                ctx.fillText("REF", comp.x + comp.width - 0.2, comp.y + indicatorSize * 0.8);
             }
         }
 
@@ -204,13 +204,13 @@ export default function TopDownCanvas({
         }
 
         // Status bar
-        ctx.fillStyle = "#06060fcc";
+        ctx.fillStyle = "#f5f5f0ee";
         ctx.fillRect(0, H - 22, W, 22);
-        ctx.fillStyle = "#666";
-        ctx.font = "10px 'JetBrains Mono', monospace";
+        ctx.fillStyle = "#888";
+        ctx.font = "10px 'IBM Plex Mono', monospace";
         ctx.textAlign = "left";
         ctx.fillText(
-            `Zoom: ${zoom.toFixed(1)} px/ft  |  Grid: 1ft / 5ft / 10ft  |  ${measureMode ? "📏 MEASURE (click+drag)" : ""}`,
+            `Zoom: ${zoom.toFixed(1)} px/ft  |  Grid: 1ft / 5ft / 10ft  |  ${measureMode ? "MEASURE MODE" : ""}`,
             8, H - 7
         );
 
@@ -232,9 +232,9 @@ export default function TopDownCanvas({
         if (tickInterval >= 10) majorEvery = 5;
 
         // Horizontal ruler
-        ctx.fillStyle = "#0a0a18ee";
+        ctx.fillStyle = "#f0f0eaee";
         ctx.fillRect(rulerW, 0, W - rulerW, rulerH);
-        ctx.strokeStyle = "#1a1a3e";
+        ctx.strokeStyle = "#c8c8c0";
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(rulerW, rulerH); ctx.lineTo(W, rulerH); ctx.stroke();
 
@@ -242,7 +242,7 @@ export default function TopDownCanvas({
         const endFt = Math.ceil((-offset.x + W) / zoom / tickInterval) * tickInterval;
 
         ctx.fillStyle = "#666";
-        ctx.font = "9px 'JetBrains Mono', monospace";
+        ctx.font = "9px 'IBM Plex Mono', monospace";
         ctx.textAlign = "center";
         for (let ft = startFt; ft <= endFt; ft += tickInterval) {
             const screenX = offset.x + ft * zoom;
@@ -250,17 +250,17 @@ export default function TopDownCanvas({
 
             const isMajor = ft % (tickInterval * majorEvery) === 0;
             if (isMajor) {
-                ctx.beginPath(); ctx.moveTo(screenX, 0); ctx.lineTo(screenX, rulerH); ctx.strokeStyle = "#2a2a5e"; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(screenX, 0); ctx.lineTo(screenX, rulerH); ctx.strokeStyle = "#b0b0a8"; ctx.stroke();
                 ctx.fillText(`${ft}'`, screenX, 12);
             } else {
-                ctx.beginPath(); ctx.moveTo(screenX, rulerH - 6); ctx.lineTo(screenX, rulerH); ctx.strokeStyle = "#1a1a3e"; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(screenX, rulerH - 6); ctx.lineTo(screenX, rulerH); ctx.strokeStyle = "#c8c8c0"; ctx.stroke();
             }
         }
 
         // Vertical ruler
-        ctx.fillStyle = "#0a0a18ee";
+        ctx.fillStyle = "#f0f0eaee";
         ctx.fillRect(0, rulerH, rulerW, H - rulerH);
-        ctx.strokeStyle = "#1a1a3e";
+        ctx.strokeStyle = "#c8c8c0";
         ctx.beginPath(); ctx.moveTo(rulerW, rulerH); ctx.lineTo(rulerW, H); ctx.stroke();
 
         for (let ft = startFt; ft <= endFt; ft += tickInterval) {
@@ -269,24 +269,24 @@ export default function TopDownCanvas({
 
             const isMajor = ft % (tickInterval * majorEvery) === 0;
             if (isMajor) {
-                ctx.beginPath(); ctx.moveTo(0, screenY); ctx.lineTo(rulerW, screenY); ctx.strokeStyle = "#2a2a5e"; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, screenY); ctx.lineTo(rulerW, screenY); ctx.strokeStyle = "#b0b0a8"; ctx.stroke();
                 ctx.save();
                 ctx.translate(11, screenY);
                 ctx.rotate(-Math.PI / 2);
                 ctx.fillText(`${ft}'`, 0, 0);
                 ctx.restore();
             } else {
-                ctx.beginPath(); ctx.moveTo(rulerW - 6, screenY); ctx.lineTo(rulerW, screenY); ctx.strokeStyle = "#1a1a3e"; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(rulerW - 6, screenY); ctx.lineTo(rulerW, screenY); ctx.strokeStyle = "#c8c8c0"; ctx.stroke();
             }
         }
 
         // Corner
-        ctx.fillStyle = "#0a0a18";
+        ctx.fillStyle = "#f0f0ea";
         ctx.fillRect(0, 0, rulerW, rulerH);
-        ctx.strokeStyle = "#1a1a3e";
+        ctx.strokeStyle = "#c8c8c0";
         ctx.strokeRect(0, 0, rulerW, rulerH);
-        ctx.fillStyle = "#444";
-        ctx.font = "7px 'JetBrains Mono', monospace";
+        ctx.fillStyle = "#888";
+        ctx.font = "7px 'IBM Plex Mono', monospace";
         ctx.textAlign = "center";
         ctx.fillText("ft", rulerW / 2, rulerH / 2 + 3);
     }

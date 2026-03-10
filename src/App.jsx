@@ -58,26 +58,32 @@ export default function App() {
         ctx.fillStyle = "#e8e0d4";
         ctx.fillRect(0, 0, W, H);
 
-        // Compute scene bounds
+        // Compute FULL scene bounds (min and max)
+        const minX = Math.min(...visible.map(c => c.x));
+        const minY = Math.min(...visible.map(c => c.y));
         const maxX = Math.max(...visible.map(c => c.x + c.width));
         const maxY = Math.max(...visible.map(c => c.y + c.length));
         const maxH = Math.max(...visible.map(c => c.height));
 
-        // Isometric projection params
-        const padding = 60;
-        const sceneWidth = maxX || 80;
-        const sceneDepth = maxY || 60;
+        // Scene extents — full range from min to max
+        const padding = 80;
+        const sceneWidth = (maxX - minX) || 80;
+        const sceneDepth = (maxY - minY) || 60;
         const sceneH = maxH || 20;
 
-        // Scale to fit canvas with some room for height
-        const isoW = sceneWidth + sceneDepth; // projected width
-        const isoH = (sceneWidth + sceneDepth) * 0.5 + sceneH; // projected height
+        // Scale to fit canvas — compute projected extents
+        const isoW = (sceneWidth + sceneDepth) * 0.86;
+        const isoH = (sceneWidth + sceneDepth) * 0.5 + sceneH;
         const scale = Math.min((W - padding * 2) / isoW, (H - padding * 2) / isoH);
 
-        // Isometric transform: (x,y,z) -> screen coords
+        // Center of scene in world coordinates
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        // Isometric transform: centered on mid-point of all components
         const toScreen = (x, y, z) => ({
-            sx: W / 2 + (x - y) * scale * 0.86,
-            sy: H * 0.7 + (x + y) * scale * 0.5 - z * scale,
+            sx: W / 2 + (x - centerX - (y - centerY)) * scale * 0.86,
+            sy: H * 0.55 + ((x - centerX) + (y - centerY)) * scale * 0.5 - z * scale,
         });
 
         // Sort by depth (back to front)
@@ -86,10 +92,10 @@ export default function App() {
         });
 
         // Draw ground plane
-        const g0 = toScreen(0, 0, 0);
-        const g1 = toScreen(sceneWidth, 0, 0);
-        const g2 = toScreen(sceneWidth, sceneDepth, 0);
-        const g3 = toScreen(0, sceneDepth, 0);
+        const g0 = toScreen(minX, minY, 0);
+        const g1 = toScreen(maxX, minY, 0);
+        const g2 = toScreen(maxX, maxY, 0);
+        const g3 = toScreen(minX, maxY, 0);
         ctx.fillStyle = "#d4cfc7";
         ctx.beginPath();
         ctx.moveTo(g0.sx, g0.sy);
@@ -261,10 +267,11 @@ export default function App() {
 
     const toolbarBtn = (label, active, onClick, title) => (
         <button onClick={onClick} title={title} style={{
-            padding: "2px 8px", fontSize: 10, fontFamily: "var(--font-mono)",
-            background: active ? "var(--accent-glow)" : "transparent",
-            border: `1px solid ${active ? "var(--accent-dim)" : "var(--border-subtle)"}`,
-            color: active ? "var(--accent)" : "var(--text-ghost)",
+            padding: "3px 10px", fontSize: 11, fontFamily: "var(--font-condensed)",
+            fontWeight: 500, letterSpacing: 0.3, textTransform: "uppercase",
+            background: active ? "var(--accent-light)" : "transparent",
+            border: `1px solid ${active ? "var(--accent)" : "var(--border-subtle)"}`,
+            color: active ? "var(--accent)" : "var(--text-muted)",
             borderRadius: "var(--radius-sm)", cursor: "pointer",
             transition: "all 0.12s ease",
         }}>
@@ -276,59 +283,59 @@ export default function App() {
         <div style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* Top bar */}
             <div style={{
-                height: 40, background: "var(--bg-deepest)", borderBottom: "1px solid var(--border-subtle)",
+                height: 42, background: "var(--bg-deepest)", borderBottom: "1px solid var(--border-default)",
                 display: "flex", alignItems: "center", padding: "0 16px", gap: 10, flexShrink: 0,
             }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 600, color: "var(--accent)", letterSpacing: 1 }}>
-                    ◆ SCENE COMPOSER
+                <span style={{ fontFamily: "var(--font-condensed)", fontSize: 15, fontWeight: 700, color: "var(--accent)", letterSpacing: 1.5, textTransform: "uppercase" }}>
+                    Scene Composer
                 </span>
-                <span style={{ fontSize: 10, color: "var(--text-ghost)", fontStyle: "italic" }}>American Render Corp</span>
+                <span style={{ fontSize: 10, color: "var(--text-ghost)", fontFamily: "var(--font-condensed)", fontWeight: 400, letterSpacing: 0.5 }}>American Render Corp</span>
 
-                <div style={{ width: 1, height: 18, background: "var(--border-subtle)" }} />
+                <div style={{ width: 1, height: 20, background: "var(--border-default)" }} />
 
                 {/* View toggle */}
                 <div style={{ display: "flex", gap: 2 }}>
-                    {toolbarBtn("Top-Down", canvasMode === "topdown", () => setCanvasMode("topdown"))}
+                    {toolbarBtn("Plan", canvasMode === "topdown", () => setCanvasMode("topdown"))}
                     {toolbarBtn("Isometric", canvasMode === "isometric", () => setCanvasMode("isometric"))}
                 </div>
 
-                <div style={{ width: 1, height: 18, background: "var(--border-subtle)" }} />
+                <div style={{ width: 1, height: 20, background: "var(--border-default)" }} />
 
                 {/* Tools */}
                 <div style={{ display: "flex", gap: 2 }}>
-                    {toolbarBtn("📏 Ruler", showRuler, () => setShowRuler(!showRuler))}
-                    {toolbarBtn("📐 Dims", showDimensions, () => setShowDimensions(!showDimensions))}
-                    {toolbarBtn("📏 Measure", measureMode, () => setMeasureMode(!measureMode))}
+                    {toolbarBtn("Ruler", showRuler, () => setShowRuler(!showRuler))}
+                    {toolbarBtn("Dims", showDimensions, () => setShowDimensions(!showDimensions))}
+                    {toolbarBtn("Measure", measureMode, () => setMeasureMode(!measureMode))}
                 </div>
 
                 <div style={{ flex: 1 }} />
 
                 {/* Zoom display in ft */}
                 <div style={{
-                    fontSize: 10, color: "var(--text-ghost)", fontFamily: "var(--font-mono)",
-                    padding: "2px 8px", background: "var(--bg-surface)", borderRadius: "var(--radius-sm)",
+                    fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)",
+                    padding: "3px 10px", background: "var(--bg-base)", borderRadius: "var(--radius-sm)",
                     border: "1px solid var(--border-subtle)",
                 }}>
-                    {zoom.toFixed(1)} px/ft · All dimensions in feet
+                    {zoom.toFixed(1)} px/ft
                 </div>
 
-                <span style={{ fontSize: 10, color: "var(--text-ghost)", fontFamily: "var(--font-mono)" }}>
-                    {components.length} parts · {components.filter(c => c.refImages?.length).length} refs
+                <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                    {components.length} parts
                 </span>
 
-                <div style={{ display: "flex", gap: 4 }}>
-                    {toolbarBtn("📸 CAD Import", false, () => setShowCadImport(true), "Import from CAD screenshot")}
+                <div style={{ display: "flex", gap: 3 }}>
+                    {toolbarBtn("CAD Import", false, () => setShowCadImport(true), "Import from CAD file")}
                     {toolbarBtn("Import", false, handleImport)}
                     {toolbarBtn("Export", false, () => downloadScene(components, sceneNotes))}
                     {toolbarBtn("SVG", false, () => exportSVG(components))}
-                    {toolbarBtn("⚙", false, () => setShowSettings(true))}
+                    {toolbarBtn("Settings", false, () => setShowSettings(true))}
                 </div>
             </div>
 
             {/* Main */}
             <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
                 {/* Left — Scene graph */}
-                <div style={{ width: 210, borderRight: "1px solid var(--border-subtle)", padding: 8, flexShrink: 0, background: "var(--bg-deep)", display: "flex", flexDirection: "column" }}>
+                <div style={{ width: 220, borderRight: "1px solid var(--border-default)", padding: 8, flexShrink: 0, background: "var(--bg-deep)", display: "flex", flexDirection: "column" }}>
                     <ComponentList components={components} selected={selected} onSelect={setSelected} onAdd={addComponent} onDelete={deleteComponent} onToggleVis={toggleVisibility} onNewScene={newScene} onBulkDelete={bulkDelete} />
                 </div>
 
@@ -346,20 +353,20 @@ export default function App() {
                             <IsometricPreview components={components} selected={selected} />
                         )}
                         <div style={{
-                            position: "absolute", top: 8, left: 8, background: "var(--bg-deepest)",
+                            position: "absolute", top: 8, left: 8, background: "rgba(255,255,255,0.85)",
                             borderRadius: "var(--radius-sm)", padding: "4px 10px", fontSize: 10,
-                            color: "var(--text-ghost)", fontFamily: "var(--font-mono)",
-                            backdropFilter: "blur(8px)", border: "1px solid var(--border-subtle)", opacity: 0.8,
+                            color: "var(--text-muted)", fontFamily: "var(--font-mono)",
+                            backdropFilter: "blur(8px)", border: "1px solid var(--border-subtle)",
                         }}>
                             {canvasMode === "topdown"
-                                ? "Drag components · Alt+Drag to pan · Scroll to zoom · All units in feet"
+                                ? "Drag to move / Alt+Drag to pan / Scroll to zoom / Units: ft"
                                 : "Rotate and zoom the 3D preview"}
                         </div>
                     </div>
 
-                    <div onMouseDown={onResizeStart} style={{ height: 5, background: "var(--border-subtle)", cursor: "ns-resize", flexShrink: 0 }}
-                        onMouseEnter={e => e.target.style.background = "var(--accent-dim)"}
-                        onMouseLeave={e => e.target.style.background = "var(--border-subtle)"} />
+                    <div onMouseDown={onResizeStart} style={{ height: 4, background: "var(--border-default)", cursor: "ns-resize", flexShrink: 0 }}
+                        onMouseEnter={e => e.target.style.background = "var(--accent)"}
+                        onMouseLeave={e => e.target.style.background = "var(--border-default)"} />
 
                     <div style={{ height: bottomHeight, display: "flex", flexDirection: "column", flexShrink: 0, background: "var(--bg-deep)" }}>
                         <RenderPipeline components={components} sceneNotes={sceneNotes} onSceneNotesChange={setSceneNotes} captureCanvas={captureCanvas} />
@@ -367,7 +374,7 @@ export default function App() {
                 </div>
 
                 {/* Right — Properties */}
-                <div style={{ width: 290, borderLeft: "1px solid var(--border-subtle)", overflowY: "auto", flexShrink: 0, background: "var(--bg-deep)" }}>
+                <div style={{ width: 290, borderLeft: "1px solid var(--border-default)", overflowY: "auto", flexShrink: 0, background: "var(--bg-deep)" }}>
                     <DetailPanel component={selectedComp} onChange={updateComponent} onDelete={deleteComponent} />
                 </div>
             </div>

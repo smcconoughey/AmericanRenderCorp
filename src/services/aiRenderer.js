@@ -102,9 +102,9 @@ export function buildFullPromptDocument(components, sceneNotes) {
 /**
  * Generate a scene render via Gemini generateContent API.
  * Optionally accepts a reference image (base64 data URL) that the model
- * will use as a layout guide.
+ * will use as a layout guide. Seed enables reproducible renders.
  */
-export async function generateSceneRender(prompt, config, referenceImageDataUrl = null) {
+export async function generateSceneRender(prompt, config, referenceImageDataUrl = null, seed = null) {
     if (!config.apiKey) {
         throw new Error("API key not configured. Go to Settings to add your Gemini API key.");
     }
@@ -129,11 +129,17 @@ export async function generateSceneRender(prompt, config, referenceImageDataUrl 
 
     parts.push({ text: prompt });
 
+    const generationConfig = {
+        responseModalities: ["IMAGE", "TEXT"],
+        temperature: 0,
+    };
+    if (seed !== null && seed !== undefined) {
+        generationConfig.seed = seed;
+    }
+
     const body = {
         contents: [{ parts }],
-        generationConfig: {
-            responseModalities: ["IMAGE", "TEXT"],
-        },
+        generationConfig,
     };
 
     const response = await fetch(url, {

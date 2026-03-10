@@ -40,36 +40,6 @@ function guessPresetMaterial(name) {
     return "Custom";
 }
 
-/**
- * Compute the best height for a body using volume data.
- * 
- * Bounding box height can be misleading — e.g. a 2ft thick concrete pad
- * with walls makes the bbox 8ft tall. The volume tells the truth:
- *   effective_height = volume / (width × length)
- * 
- * For solid/filled bodies (concrete, containers), effective height is accurate.
- * For frame/open structures (test stands), bounding box height is correct
- * because the body is mostly air — volume-derived height is much smaller.
- * 
- * Heuristic: if bbox_height > 3× effective_height, the body has features
- * extending beyond its main mass → use effective_height instead.
- */
-function bestHeight(bboxW, bboxL, bboxH, volumeFt3) {
-    if (!volumeFt3 || !bboxW || !bboxL) return bboxH;
-
-    const effectiveH = volumeFt3 / (bboxW * bboxL);
-
-    // If bbox height is more than 3× the volume-implied height,
-    // the bbox is inflated by protruding features → use volume height.
-    // Using 3× (not 2×) to avoid false positives on hollow bodies
-    // like shipping containers whose volume is small relative to bbox.
-    if (bboxH > effectiveH * 3) {
-        return Math.round(effectiveH * 100) / 100;
-    }
-
-    // Otherwise bbox height is trustworthy
-    return bboxH;
-}
 
 export default function CadImport({ onImport, onClose }) {
     const [step, setStep] = useState("upload"); // upload | parsed | review
@@ -96,17 +66,14 @@ export default function CadImport({ onImport, onClose }) {
                     const data = JSON.parse(ev.target.result);
                     if (data.source === "fusion360" || data.components) {
                         parsed = (data.components || []).map(c => {
+                            // Fusion 360 is Y-up: c.height = Y extent (vertical), c.length = Z extent (depth).
                             const width = c.width || 10;
+                            const height = c.height || 8;
                             const length = c.length || 8;
-                            const bboxH = c.height || 8;
-
-                            // Use volume to correct misleading bbox heights
-                            const height = bestHeight(width, length, bboxH, c.volume_ft3);
 
                             return {
                                 name: c.name,
                                 width, length, height,
-                                bboxHeight: bboxH,
                                 x: c.x || 0,
                                 y: c.y || 0,
                                 material: c.material ? guessPresetMaterial(c.material) : guessPresetMaterial(c.name),
@@ -219,14 +186,14 @@ export default function CadImport({ onImport, onClose }) {
 
     return (
         <div style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)",
             display: "flex", alignItems: "center", justifyContent: "center",
             zIndex: 1000, backdropFilter: "blur(4px)",
         }}>
             <div style={{
                 background: "var(--bg-surface)", border: "1px solid var(--border-default)",
                 borderRadius: "var(--radius-lg)", width: 720, maxHeight: "88vh",
-                overflow: "auto", boxShadow: "0 20px 80px rgba(0,0,0,0.6)",
+                overflow: "auto", boxShadow: "0 20px 80px rgba(0,0,0,0.15)",
             }}>
                 {/* Header */}
                 <div style={{
@@ -234,12 +201,12 @@ export default function CadImport({ onImport, onClose }) {
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                 }}>
                     <div>
-                        <span style={{ fontSize: 14, fontWeight: 600 }}>📸 CAD Import</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-condensed)", textTransform: "uppercase", letterSpacing: 1 }}>CAD Import</span>
                         <span style={{ fontSize: 11, color: "var(--text-ghost)", marginLeft: 12 }}>
                             {step === "upload" ? "Select file" : step === "screenshot" ? "Enter body names" : step === "parsed" ? "Review extracted data" : "Confirm import"}
                         </span>
                     </div>
-                    <button onClick={onClose} style={{ ...btnSmall, padding: "2px 8px" }}>✕</button>
+                    <button onClick={onClose} style={{ ...btnSmall, padding: "2px 8px" }}>Close</button>
                 </div>
 
                 <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -248,11 +215,11 @@ export default function CadImport({ onImport, onClose }) {
                         <>
                             {/* Primary: File import */}
                             <div style={{
-                                padding: 16, border: "2px solid var(--accent-dim)", borderRadius: "var(--radius-md)",
-                                background: "var(--accent-glow)",
+                                padding: 16, border: "2px solid var(--accent)", borderRadius: "var(--radius-md)",
+                                background: "var(--accent-light)",
                             }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", marginBottom: 6 }}>
-                                    ⭐ Recommended: Fusion 360 Export Script
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", marginBottom: 6, fontFamily: "var(--font-condensed)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                    Recommended: Fusion 360 Export Script
                                 </div>
                                 <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 10 }}>
                                     Run <code style={{ background: "var(--bg-deep)", padding: "1px 4px", borderRadius: 2, fontSize: 11 }}>fusion360_export.py</code> in
@@ -268,7 +235,7 @@ export default function CadImport({ onImport, onClose }) {
                                 height: 140, border: "2px dashed var(--border-default)", borderRadius: "var(--radius-md)",
                                 cursor: "pointer", transition: "border-color 0.2s",
                             }}>
-                                <span style={{ fontSize: 28, marginBottom: 6 }}>📁</span>
+                                <span style={{ fontSize: 16, marginBottom: 6, color: "var(--text-ghost)", fontFamily: "var(--font-condensed)", fontWeight: 600 }}>FILE</span>
                                 <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
                                     Drop or click to import CAD file
                                 </span>
@@ -317,9 +284,9 @@ export default function CadImport({ onImport, onClose }) {
                                     <button onClick={() => { setStep("upload"); setCadImage(null); }} style={btnSmall}>← Back</button>
                                     <button onClick={parseBulkNames} disabled={!bulkText.trim()} style={{
                                         ...btnSmall, flex: 1,
-                                        background: bulkText.trim() ? "var(--accent-glow)" : "transparent",
+                                        background: bulkText.trim() ? "var(--accent-light)" : "transparent",
                                         color: bulkText.trim() ? "var(--accent)" : "var(--text-ghost)",
-                                        borderColor: bulkText.trim() ? "var(--accent-dim)" : "var(--border-default)",
+                                        borderColor: bulkText.trim() ? "var(--accent)" : "var(--border-default)",
                                     }}>
                                         Parse Names → (you'll need to set dimensions manually)
                                     </button>
@@ -413,19 +380,14 @@ export default function CadImport({ onImport, onClose }) {
                                                             borderColor: body.needsManualDims ? "rgba(251,191,36,0.3)" : "var(--border-default)",
                                                         }} />
                                                 </td>
-                                                <td style={{ padding: "4px 2px", textAlign: "center" }}
-                                                    title={body.bboxHeight && body.bboxHeight !== body.height ? `Bbox: ${body.bboxHeight}ft → Volume-corrected: ${body.height}ft` : undefined}>
+                                                <td style={{ padding: "4px 2px", textAlign: "center" }}>
                                                     <input type="number" step="0.5" value={body.height}
                                                         onChange={e => updateBody(i, "height", +e.target.value)}
                                                         style={{
                                                             ...inputStyle, width: 52, fontSize: 10, padding: "2px 4px", textAlign: "center",
                                                             fontFamily: "var(--font-mono)",
-                                                            background: body.bboxHeight && body.bboxHeight !== body.height
-                                                                ? "rgba(52,211,153,0.12)"
-                                                                : body.needsManualDims ? "rgba(251,191,36,0.1)" : "var(--bg-deep)",
-                                                            borderColor: body.bboxHeight && body.bboxHeight !== body.height
-                                                                ? "rgba(52,211,153,0.3)"
-                                                                : body.needsManualDims ? "rgba(251,191,36,0.3)" : "var(--border-default)",
+                                                            background: body.needsManualDims ? "rgba(251,191,36,0.1)" : "var(--bg-deep)",
+                                                            borderColor: body.needsManualDims ? "rgba(251,191,36,0.3)" : "var(--border-default)",
                                                         }} />
                                                 </td>
                                                 <td style={{ padding: "4px 2px", textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-ghost)" }}>
@@ -461,10 +423,10 @@ export default function CadImport({ onImport, onClose }) {
                                 <button onClick={() => { setStep("upload"); setBodies([]); setFileInfo(null); }} style={btnSmall}>← Back</button>
                                 <button onClick={handleImport} style={{
                                     ...btnSmall, padding: "8px 20px",
-                                    background: "var(--accent-glow)", color: "var(--accent)", borderColor: "var(--accent-dim)",
-                                    fontWeight: 600,
+                                    background: "var(--accent-light)", color: "var(--accent)", borderColor: "var(--accent)",
+                                    fontWeight: 600, fontFamily: "var(--font-condensed)", textTransform: "uppercase", letterSpacing: 0.5,
                                 }}>
-                                    Import {bodies.filter(b => b.include).length} Bodies ✓
+                                    Import {bodies.filter(b => b.include).length} Bodies
                                 </button>
                             </div>
                         </>

@@ -1,46 +1,48 @@
-/* ===== AMERICAN RENDER CORP — GLOBAL STYLES ===== */
+/* ===== AMERICAN RENDER CORP — ARCHITECTURAL LIGHT THEME ===== */
 
 :root {
-  /* Dark theme palette */
-  --bg-deepest: #06060f;
-  --bg-deep: #0a0a18;
-  --bg-base: #0d0d1a;
-  --bg-surface: #111128;
-  --bg-elevated: #161636;
-  --bg-hover: #1a1a3a;
-  
-  /* Borders */
-  --border-subtle: #1a1a2e;
-  --border-default: #2a2a4e;
-  --border-bright: #3a3a6e;
-  
-  /* Accent — warm orange */
-  --accent: #ff6b35;
-  --accent-dim: #ff6b3544;
-  --accent-bright: #ff8c5a;
-  --accent-glow: #ff6b3522;
-  
+  /* Light architectural palette */
+  --bg-deepest: #ffffff;
+  --bg-deep: #f7f8fa;
+  --bg-base: #f0f2f5;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8edf3;
+
+  /* Borders — subtle architectural lines */
+  --border-subtle: #e2e6ec;
+  --border-default: #cdd3dc;
+  --border-bright: #b0b8c4;
+
+  /* Accent — steel blue */
+  --accent: #2b6cb0;
+  --accent-dim: #2b6cb033;
+  --accent-bright: #3182ce;
+  --accent-glow: #2b6cb015;
+  --accent-light: #ebf4ff;
+
   /* Status */
-  --success: #34d399;
-  --warning: #fbbf24;
-  --error: #ef4444;
-  --info: #60a5fa;
-  
-  /* Text */
-  --text-primary: #e8e8f0;
-  --text-secondary: #9999bb;
-  --text-muted: #666688;
-  --text-ghost: #444466;
-  
-  /* Typography */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-  
+  --success: #276749;
+  --warning: #b7791f;
+  --error: #c53030;
+  --info: #2b6cb0;
+
+  /* Text — high contrast architectural */
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+  --text-ghost: #a0aec0;
+
+  /* Typography — architectural/civil */
+  --font-sans: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-condensed: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+
   /* Sizing */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+
   /* Transitions */
   --transition-fast: 0.12s ease;
   --transition-base: 0.2s ease;
@@ -52,7 +54,9 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -88,33 +92,42 @@ body {
 /* Selection */
 ::selection {
   background: var(--accent-dim);
-  color: var(--accent-bright);
+  color: var(--accent);
 }
 
 /* Focus rings */
 :focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1.5px solid var(--accent);
   outline-offset: 1px;
 }
 
 /* Utility animation */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-dim); }
-  50% { box-shadow: 0 0 12px 2px var(--accent-dim); }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .fade-in {
@@ -123,4 +136,20 @@ body {
 
 .slide-up {
   animation: slideUp 0.3s ease;
+}
+
+/* Input/select styling */
+input,
+select,
+textarea {
+  font-family: var(--font-sans);
+}
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;
+  padding-right: 24px !important;
 }

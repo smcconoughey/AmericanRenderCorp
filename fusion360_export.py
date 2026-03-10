@@ -46,16 +46,15 @@ def run(context):
                 # Convert cm to feet (Fusion stores internally in cm)
                 cm_to_ft = 1.0 / 30.48
                 
-                # Fusion 360 coordinate system: X = right, Y = UP, Z = forward
-                # Scene Composer: width = left-right, length = front-back (ground), height = vertical
+                # Fusion 360 is Y-up: X = right, Y = vertical (up), Z = depth (forward)
                 width  = abs(max_pt.x - min_pt.x) * cm_to_ft   # X extent → width
-                height = abs(max_pt.y - min_pt.y) * cm_to_ft   # Y extent → height (vertical!)
-                length = abs(max_pt.z - min_pt.z) * cm_to_ft   # Z extent → length (ground depth)
-                
-                # Top-down position uses X and Z (the ground plane)
+                height = abs(max_pt.y - min_pt.y) * cm_to_ft   # Y extent → height (vertical)
+                length = abs(max_pt.z - min_pt.z) * cm_to_ft   # Z extent → length (depth)
+
+                # Fusion 360 is Y-up: ground plane is XZ, Y is vertical.
                 pos_x = min_pt.x * cm_to_ft     # X position on ground
-                pos_y = min_pt.z * cm_to_ft     # Z position on ground (Z = forward/back in Fusion)
-                ground_z = min_pt.y * cm_to_ft  # Y = vertical base height
+                pos_y = min_pt.z * cm_to_ft     # Z position on ground (Z = depth/forward in Y-up)
+                ground_z = min_pt.y * cm_to_ft  # Y base elevation (Y = up)
                 
                 body_data = {
                     "name": body.name,

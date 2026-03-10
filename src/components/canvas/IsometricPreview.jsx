@@ -28,7 +28,7 @@ export default function IsometricPreview({ components, selected }) {
         const W = canvas.width;
         const H = canvas.height;
         ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = "#06060f";
+        ctx.fillStyle = "#f5f5f0";
         ctx.fillRect(0, 0, W, H);
 
         const cx = W / 2;
@@ -53,7 +53,7 @@ export default function IsometricPreview({ components, selected }) {
         // Ground grid (in feet)
         ctx.save();
         ctx.globalAlpha = 0.25;
-        ctx.strokeStyle = "#1a1a3e";
+        ctx.strokeStyle = "#d0d0c8";
         ctx.lineWidth = 0.5;
         const gridExtent = 80;
         for (let i = -gridExtent; i <= gridExtent; i += 10) {
@@ -90,7 +90,7 @@ export default function IsometricPreview({ components, selected }) {
             ctx.closePath();
             ctx.fillStyle = `rgba(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)}, 0.85)`;
             ctx.fill();
-            ctx.strokeStyle = isSelected ? "#ff6b35" : `rgba(${r}, ${g}, ${b}, 0.9)`;
+            ctx.strokeStyle = isSelected ? "#2b6cb0" : `rgba(${r}, ${g}, ${b}, 0.6)`;
             ctx.lineWidth = isSelected ? 2 : 1;
             ctx.stroke();
 
@@ -113,28 +113,28 @@ export default function IsometricPreview({ components, selected }) {
             // Label on top
             const labelX = (corners[4].x + corners[5].x + corners[6].x + corners[7].x) / 4;
             const labelY = (corners[4].y + corners[5].y + corners[6].y + corners[7].y) / 4;
-            const name = comp.name.length > 16 ? comp.name.slice(0, 14) + "…" : comp.name;
-            ctx.font = "500 9px 'JetBrains Mono', monospace";
+            const name = comp.name.length > 16 ? comp.name.slice(0, 14) + "..." : comp.name;
+            ctx.font = "500 9px 'IBM Plex Mono', monospace";
             ctx.textAlign = "center"; ctx.textBaseline = "middle";
-            ctx.fillStyle = "#000000aa"; ctx.fillText(name, labelX + 0.5, labelY + 0.5);
-            ctx.fillStyle = "#fff"; ctx.fillText(name, labelX, labelY);
+            ctx.fillStyle = "#ffffffaa"; ctx.fillText(name, labelX + 0.5, labelY + 0.5);
+            ctx.fillStyle = "#1a202c"; ctx.fillText(name, labelX, labelY);
 
             // Height annotation
             if (isSelected) {
                 const topMid = { x: (corners[4].x + corners[5].x) / 2, y: (corners[4].y + corners[5].y) / 2 };
                 const botMid = { x: (corners[0].x + corners[1].x) / 2, y: (corners[0].y + corners[1].y) / 2 };
                 ctx.beginPath(); ctx.moveTo(topMid.x, topMid.y); ctx.lineTo(botMid.x, botMid.y);
-                ctx.strokeStyle = "#ff6b3588"; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
-                ctx.fillStyle = "#ff6b35"; ctx.font = "600 10px 'JetBrains Mono', monospace";
+                ctx.strokeStyle = "#2b6cb088"; ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+                ctx.fillStyle = "#2b6cb0"; ctx.font = "600 10px 'IBM Plex Mono', monospace";
                 ctx.fillText(`${comp.height}ft`, topMid.x + 15, (topMid.y + botMid.y) / 2);
             }
         }
 
         // Info
-        ctx.fillStyle = "#444";
-        ctx.font = "10px 'JetBrains Mono', monospace";
+        ctx.fillStyle = "#888";
+        ctx.font = "10px 'IBM Plex Mono', monospace";
         ctx.textAlign = "left";
-        ctx.fillText(`Rotation: ${rotation}° | Elevation: ${elevation}° | All dimensions in feet`, 8, H - 8);
+        ctx.fillText(`Rotation: ${rotation}  |  Elevation: ${elevation}  |  All dimensions in feet`, 8, H - 8);
     }, [components, selected, rotation, elevation, isoZoom, project]);
 
     useEffect(() => {
@@ -163,20 +163,20 @@ export default function IsometricPreview({ components, selected }) {
         <div style={{ width: "100%", height: "100%", position: "relative" }}>
             <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
             <div style={{
-                position: "absolute", top: 8, right: 8, background: "#080814dd",
+                position: "absolute", top: 8, right: 8, background: "rgba(255,255,255,0.9)",
                 borderRadius: 6, padding: "8px 12px", backdropFilter: "blur(8px)",
-                border: "1px solid #1a1a2e", display: "flex", flexDirection: "column", gap: 6,
+                border: "1px solid var(--border-default)", display: "flex", flexDirection: "column", gap: 6,
             }}>
                 {[
                     { label: "Rotate", min: 0, max: 360, value: rotation, set: setRotation, unit: "°" },
                     { label: "Elevation", min: 10, max: 80, value: elevation, set: setElevation, unit: "°" },
                     { label: "Zoom", min: 10, max: 100, value: isoZoom * 10, set: v => setIsoZoom(v / 10), unit: "" },
                 ].map(s => (
-                    <label key={s.label} style={{ fontSize: 10, color: "#888", display: "flex", alignItems: "center", gap: 6 }}>
+                    <label key={s.label} style={{ fontSize: 10, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-condensed)", textTransform: "uppercase", letterSpacing: 0.5 }}>
                         <span style={{ width: 52 }}>{s.label}</span>
                         <input type="range" min={s.min} max={s.max} value={s.value}
-                            onChange={e => s.set(+e.target.value)} style={{ width: 80, accentColor: "#ff6b35" }} />
-                        <span style={{ width: 32, textAlign: "right", fontFamily: "'JetBrains Mono', monospace" }}>
+                            onChange={e => s.set(+e.target.value)} style={{ width: 80, accentColor: "#2b6cb0" }} />
+                        <span style={{ width: 32, textAlign: "right", fontFamily: "var(--font-mono)", textTransform: "none" }}>
                             {typeof s.value === "number" ? (s.label === "Zoom" ? `${(s.value / 10).toFixed(1)}×` : `${s.value}${s.unit}`) : s.value}
                         </span>
                     </label>

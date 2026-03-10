@@ -13,6 +13,7 @@ const inputStyle = {
 const labelStyle = {
     display: "flex", flexDirection: "column", gap: 4,
     fontSize: 11, color: "var(--text-muted)", fontWeight: 500,
+    fontFamily: "var(--font-condensed)", textTransform: "uppercase", letterSpacing: 0.5,
 };
 
 const btnSmall = {
@@ -33,7 +34,7 @@ export default function DetailPanel({ component, onChange, onDelete }) {
             padding: 24, color: "var(--text-ghost)", fontSize: 13, textAlign: "center",
             marginTop: 60, lineHeight: 1.8
         }}>
-            <div style={{ fontSize: 28, marginBottom: 12, opacity: 0.5 }}>⬡</div>
+            <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.3, color: "var(--text-ghost)" }}>---</div>
             Select a component to<br />edit its properties
         </div>
     );
@@ -65,7 +66,7 @@ export default function DetailPanel({ component, onChange, onDelete }) {
                 <span style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 600 }}>
                     Properties
                 </span>
-                <button onClick={() => onDelete(component.id)} style={{ ...btnSmall, color: "var(--error)", borderColor: "rgba(239,68,68,0.3)" }}>
+                <button onClick={() => onDelete(component.id)} style={{ ...btnSmall, color: "var(--error)", borderColor: "rgba(197,48,48,0.3)", fontFamily: "var(--font-condensed)", fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5 }}>
                     Delete
                 </button>
             </div>
@@ -78,15 +79,15 @@ export default function DetailPanel({ component, onChange, onDelete }) {
 
             {/* Real-world size badge — ALL IN FEET */}
             <div style={{
-                background: "var(--accent-glow)", border: "1px solid var(--accent-dim)",
+                background: "var(--accent-light)", border: "1px solid var(--accent)",
                 borderRadius: "var(--radius-md)", padding: "8px 10px",
                 textAlign: "center", fontFamily: "var(--font-mono)",
             }}>
                 <div style={{ fontSize: 14, color: "var(--accent)", fontWeight: 600, letterSpacing: 0.5 }}>
-                    {component.width}' × {component.length}' × {component.height}'
+                    {component.width}' x {component.length}' x {component.height}'
                 </div>
-                <div style={{ fontSize: 10, color: "var(--text-ghost)", marginTop: 2 }}>
-                    width × length × height (feet)
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+                    width x length x height (feet)
                 </div>
             </div>
 
@@ -161,7 +162,7 @@ export default function DetailPanel({ component, onChange, onDelete }) {
                         {component.refImages.map((img, i) => (
                             <div key={i} style={{ position: "relative", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
                                 <img src={img} alt={`Ref ${i + 1}`} style={{ width: "100%", display: "block", border: "1px solid var(--border-default)", borderRadius: "var(--radius-sm)" }} />
-                                <button onClick={() => removeImage(i)} style={{ ...btnSmall, position: "absolute", top: 4, right: 4, background: "var(--bg-deepest)", padding: "2px 6px", fontSize: 10, backdropFilter: "blur(4px)" }}>✕</button>
+                                <button onClick={() => removeImage(i)} style={{ ...btnSmall, position: "absolute", top: 4, right: 4, background: "rgba(255,255,255,0.9)", padding: "2px 6px", fontSize: 10 }}>x</button>
                             </div>
                         ))}
                     </div>

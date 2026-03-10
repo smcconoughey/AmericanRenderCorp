@@ -49,7 +49,7 @@ export default function ComponentList({ components, selected, onSelect, onAdd, o
                 <div style={{ display: "flex", gap: 3 }}>
                     <button onClick={onAdd} style={{ ...btnSmall, fontSize: 10, padding: "2px 6px" }}>+ Add</button>
                     <button onClick={onNewScene} style={{ ...btnSmall, fontSize: 10, padding: "2px 6px", color: "var(--text-ghost)" }} title="New empty scene">
-                        ✦ New
+                        + New
                     </button>
                 </div>
             </div>
@@ -71,9 +71,9 @@ export default function ComponentList({ components, selected, onSelect, onAdd, o
                     <button onClick={() => { setSelectMode(!selectMode); setMultiSelect(new Set()); }}
                         style={{
                             ...btnSmall, fontSize: 9, padding: "1px 6px",
-                            background: selectMode ? "var(--accent-glow)" : "transparent",
+                            background: selectMode ? "var(--accent-light)" : "transparent",
                             color: selectMode ? "var(--accent)" : "var(--text-ghost)",
-                            borderColor: selectMode ? "var(--accent-dim)" : "var(--border-subtle)",
+                            borderColor: selectMode ? "var(--accent)" : "var(--border-subtle)",
                         }}>
                         {selectMode ? "Cancel" : "Select"}
                     </button>
@@ -100,7 +100,7 @@ export default function ComponentList({ components, selected, onSelect, onAdd, o
                     <div style={{
                         padding: "20px 12px", textAlign: "center", color: "var(--text-ghost)", fontSize: 12, lineHeight: 1.6,
                     }}>
-                        <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }}>⬡</div>
+                        <div style={{ fontSize: 24, marginBottom: 8, opacity: 0.3, color: "var(--text-ghost)" }}>---</div>
                         Empty scene<br />
                         <span style={{ fontSize: 11 }}>
                             Use <strong>CAD Import</strong> to load your model<br />or <strong>+ Add</strong> to create components
@@ -114,7 +114,7 @@ export default function ComponentList({ components, selected, onSelect, onAdd, o
                         style={{
                             padding: "6px 8px",
                             background: selectMode
-                                ? multiSelect.has(c.id) ? "rgba(255,107,53,0.12)" : "transparent"
+                                ? multiSelect.has(c.id) ? "rgba(43,108,176,0.1)" : "transparent"
                                 : selected === c.id ? "var(--bg-hover)" : "transparent",
                             borderLeft: selectMode
                                 ? multiSelect.has(c.id) ? "2px solid var(--accent)" : "2px solid transparent"
@@ -135,7 +135,7 @@ export default function ComponentList({ components, selected, onSelect, onAdd, o
                         )}
                         <div style={{
                             width: 10, height: 10, background: c.color, borderRadius: 2,
-                            flexShrink: 0, border: "1px solid rgba(255,255,255,0.1)"
+                            flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)"
                         }} />
                         <span style={{
                             flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -145,10 +145,10 @@ export default function ComponentList({ components, selected, onSelect, onAdd, o
                         </span>
                         {!selectMode && (
                             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                                {c.locked && <span style={{ fontSize: 9 }} title="Locked">🔒</span>}
+                                {c.locked && <span style={{ fontSize: 9, fontWeight: 600, color: "var(--text-muted)" }} title="Locked">LK</span>}
                                 {c.refImages?.length > 0 && (
-                                    <span style={{ fontSize: 9, color: "var(--accent)" }} title={`${c.refImages.length} ref image(s)`}>
-                                        📷{c.refImages.length > 1 ? c.refImages.length : ""}
+                                    <span style={{ fontSize: 9, color: "var(--accent)", fontWeight: 600 }} title={`${c.refImages.length} ref image(s)`}>
+                                        REF{c.refImages.length > 1 ? c.refImages.length : ""}
                                     </span>
                                 )}
                                 <button
@@ -159,7 +159,7 @@ export default function ComponentList({ components, selected, onSelect, onAdd, o
                                     }}
                                     title={c.visible === false ? "Show" : "Hide"}
                                 >
-                                    {c.visible === false ? "👁️‍🗨️" : "👁️"}
+                                    {c.visible === false ? "Show" : "Hide"}
                                 </button>
                             </div>
                         )}

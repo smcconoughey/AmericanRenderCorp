@@ -10,6 +10,7 @@ const inputStyle = {
 const labelStyle = {
     display: "flex", flexDirection: "column", gap: 4,
     fontSize: 11, color: "var(--text-muted)", fontWeight: 500,
+    fontFamily: "var(--font-condensed)", textTransform: "uppercase", letterSpacing: 0.5,
 };
 
 const btnSmall = {
@@ -31,16 +32,16 @@ export default function SettingsPanel({ onClose }) {
     const updateConfig = (key, val) => { setConfig(prev => ({ ...prev, [key]: val })); setSaved(false); };
 
     return (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
-            <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)", width: 420, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.25)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
+            <div style={{ background: "var(--bg-surface)", border: "1px solid var(--border-default)", borderRadius: "var(--radius-lg)", width: 420, maxHeight: "80vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.15)" }}>
                 <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>Settings</span>
-                    <button onClick={onClose} style={{ ...btnSmall, padding: "2px 8px" }}>✕</button>
+                    <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-condensed)", textTransform: "uppercase", letterSpacing: 1 }}>Settings</span>
+                    <button onClick={onClose} style={{ ...btnSmall, padding: "2px 8px" }}>Close</button>
                 </div>
 
                 <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
                     {/* Units info */}
-                    <div style={{ padding: "8px 12px", background: "var(--accent-glow)", border: "1px solid var(--accent-dim)", borderRadius: "var(--radius-sm)", fontSize: 12, color: "var(--accent)" }}>
+                    <div style={{ padding: "8px 12px", background: "var(--accent-light)", border: "1px solid var(--accent)", borderRadius: "var(--radius-sm)", fontSize: 12, color: "var(--accent)" }}>
                         All scene dimensions are in <strong>feet</strong>. No unit conversion needed.
                     </div>
 
@@ -87,11 +88,12 @@ export default function SettingsPanel({ onClose }) {
                         <button onClick={onClose} style={btnSmall}>Cancel</button>
                         <button onClick={handleSave} style={{
                             ...btnSmall,
-                            background: saved ? "rgba(52,211,153,0.15)" : "var(--accent-glow)",
+                            background: saved ? "rgba(39,103,73,0.1)" : "var(--accent-light)",
                             color: saved ? "var(--success)" : "var(--accent)",
-                            borderColor: saved ? "rgba(52,211,153,0.3)" : "var(--accent-dim)",
+                            borderColor: saved ? "var(--success)" : "var(--accent)",
+                            fontFamily: "var(--font-condensed)", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5,
                         }}>
-                            {saved ? "✓ Saved" : "Save Settings"}
+                            {saved ? "Saved" : "Save Settings"}
                         </button>
                     </div>
                 </div>
