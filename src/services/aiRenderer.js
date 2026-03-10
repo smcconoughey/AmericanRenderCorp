@@ -119,34 +119,66 @@ export function buildFullPromptDocument(components, sceneNotes) {
 }
 
 /**
+ * Build iteration prompt for refining an existing render.
+ * Image 1 (caller provides): spatial layout blueprint
+ * Image 2 (caller provides): the current render to correct
+ */
+function buildIterationPrompt(feedback) {
+    return `You are refining an existing architectural render.
+Image 1: spatial layout blueprint (correct positions/sizes)
+Image 2: the CURRENT RENDER to correct
+
+Apply ONLY these corrections:
+${feedback}
+
+Keep everything else identical — camera angle, lighting, materials, composition. Only modify what is stated above.`;
+}
+
+/**
  * Generate a scene render via Gemini generateContent API.
  * Optionally accepts a reference image (base64 data URL) that the model
  * will use as a layout guide. Seed enables reproducible renders.
+ *
+ * @param {string} prompt - Scene description prompt
+ * @param {object} config - AI config (apiKey, model, etc.)
+ * @param {string|null} referenceImageDataUrl - Layout blueprint image (Image 1)
+ * @param {number|null} seed - Reproducibility seed
+ * @param {AbortSignal|null} signal - AbortController signal for cancellation
+ * @param {string|null} baseRenderDataUrl - Current render to refine (Image 2, iteration mode)
+ * @param {string|null} iterationFeedback - Correction instructions (iteration mode)
  */
-export async function generateSceneRender(prompt, config, referenceImageDataUrl = null, seed = null) {
+export async function generateSceneRender(
+    prompt, config, referenceImageDataUrl = null, seed = null,
+    signal = null, baseRenderDataUrl = null, iterationFeedback = null
+) {
     if (!config.apiKey) {
         throw new Error("API key not configured. Go to Settings to add your Gemini API key.");
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`;
 
-    // Build parts array — reference image first (if provided), then text
+    const isIteration = !!(baseRenderDataUrl && iterationFeedback);
+
+    // Build parts array:
+    // Normal mode:    [refImage?, text]
+    // Iteration mode: [refImage (blueprint), currentRender, iterationText]
     const parts = [];
 
     if (referenceImageDataUrl) {
-        // Extract base64 data and mime type from data URL
         const match = referenceImageDataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
         if (match) {
-            parts.push({
-                inlineData: {
-                    mimeType: match[1],
-                    data: match[2],
-                },
-            });
+            parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
         }
     }
 
-    parts.push({ text: prompt });
+    if (isIteration) {
+        const match = baseRenderDataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+        if (match) {
+            parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+        }
+    }
+
+    parts.push({ text: isIteration ? buildIterationPrompt(iterationFeedback) : prompt });
 
     const generationConfig = {
         responseModalities: ["IMAGE", "TEXT"],
@@ -166,14 +198,17 @@ export async function generateSceneRender(prompt, config, referenceImageDataUrl 
         },
     };
 
-    const response = await fetch(url, {
+    const fetchOptions = {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "x-goog-api-key": config.apiKey,
         },
         body: JSON.stringify(body),
-    });
+    };
+    if (signal) fetchOptions.signal = signal;
+
+    const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
