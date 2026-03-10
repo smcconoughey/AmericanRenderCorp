@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import TopDownCanvas from "./components/canvas/TopDownCanvas.jsx";
 import IsometricPreview from "./components/canvas/IsometricPreview.jsx";
 import ComponentList from "./components/panels/ComponentList.jsx";
@@ -20,12 +20,37 @@ import { downloadScene, importScene, exportSVG } from "./services/sceneSerialize
 let idCounter = 0;
 const uid = () => `c${++idCounter}`;
 
+const STORAGE_KEY = "arc_scene_v1";
+
+function loadSaved() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
 export default function App() {
-    const [components, setComponents] = useState([]);
+    const saved = loadSaved();
+
+    const [components, setComponents] = useState(() => {
+        if (saved?.components?.length) {
+            // Restore idCounter so new UIDs don't collide
+            const maxId = saved.components.reduce((m, c) => {
+                const n = parseInt(c.id?.replace(/\D/g, ""), 10);
+                return isNaN(n) ? m : Math.max(m, n);
+            }, 0);
+            idCounter = maxId;
+            return saved.components;
+        }
+        return [];
+    });
     const [selected, setSelected] = useState(null);
-    const [viewOffset, setViewOffset] = useState({ x: 120, y: 60 });
-    const [zoom, setZoom] = useState(8); // pixels per foot
-    const [sceneNotes, setSceneNotes] = useState("");
+    const [viewOffset, setViewOffset] = useState(saved?.viewOffset ?? { x: 120, y: 60 });
+    const [zoom, setZoom] = useState(saved?.zoom ?? 8);
+    const [sceneNotes, setSceneNotes] = useState(saved?.sceneNotes ?? "");
 
     // UI state
     const [canvasMode, setCanvasMode] = useState("topdown");
@@ -36,6 +61,13 @@ export default function App() {
     const [showDimensions, setShowDimensions] = useState(true);
     const [measureMode, setMeasureMode] = useState(false);
     const canvasAreaRef = useRef(null);
+
+    // Persist scene to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ components, sceneNotes, viewOffset, zoom }));
+        } catch { /* storage full or unavailable */ }
+    }, [components, sceneNotes, viewOffset, zoom]);
 
     const selectedComp = components.find(c => c.id === selected);
 
@@ -54,8 +86,8 @@ export default function App() {
         offscreen.height = H;
         const ctx = offscreen.getContext("2d");
 
-        // Light background
-        ctx.fillStyle = "#e8e0d4";
+        // Outdoor terrain background (green/brown — NOT concrete)
+        ctx.fillStyle = "#7a8c6a";
         ctx.fillRect(0, 0, W, H);
 
         // Compute FULL scene bounds (min and max)
@@ -63,7 +95,7 @@ export default function App() {
         const minY = Math.min(...visible.map(c => c.y));
         const maxX = Math.max(...visible.map(c => c.x + c.width));
         const maxY = Math.max(...visible.map(c => c.y + c.length));
-        const maxH = Math.max(...visible.map(c => c.height));
+        const maxH = Math.max(...visible.map(c => (c.z || 0) + c.height));
 
         // Scene extents — full range from min to max
         const padding = 80;
@@ -96,7 +128,7 @@ export default function App() {
         const g1 = toScreen(maxX, minY, 0);
         const g2 = toScreen(maxX, maxY, 0);
         const g3 = toScreen(minX, maxY, 0);
-        ctx.fillStyle = "#d4cfc7";
+        ctx.fillStyle = "#8a9e6e"; // earthy green — terrain, NOT concrete
         ctx.beginPath();
         ctx.moveTo(g0.sx, g0.sy);
         ctx.lineTo(g1.sx, g1.sy);
@@ -109,31 +141,35 @@ export default function App() {
         for (const comp of sorted) {
             const x = comp.x;
             const y = comp.y;
+            const z = comp.z || 0;   // base elevation (e.g. 2ft if sitting on a concrete pad)
             const w = comp.width;
             const d = comp.length;
             const h = comp.height;
 
-            // 8 corners
+            // 8 corners — use z as base elevation so elevated components render correctly
             const p = [
-                toScreen(x, y, 0),         // 0: front-left-bottom
-                toScreen(x + w, y, 0),      // 1: front-right-bottom
-                toScreen(x + w, y + d, 0),  // 2: back-right-bottom
-                toScreen(x, y + d, 0),      // 3: back-left-bottom
-                toScreen(x, y, h),          // 4: front-left-top
-                toScreen(x + w, y, h),      // 5: front-right-top
-                toScreen(x + w, y + d, h),  // 6: back-right-top
-                toScreen(x, y + d, h),      // 7: back-left-top
+                toScreen(x, y, z),             // 0: front-left-bottom
+                toScreen(x + w, y, z),          // 1: front-right-bottom
+                toScreen(x + w, y + d, z),      // 2: back-right-bottom
+                toScreen(x, y + d, z),          // 3: back-left-bottom
+                toScreen(x, y, z + h),          // 4: front-left-top
+                toScreen(x + w, y, z + h),      // 5: front-right-top
+                toScreen(x + w, y + d, z + h),  // 6: back-right-top
+                toScreen(x, y + d, z + h),      // 7: back-left-top
             ];
 
             const baseColor = comp.color || "#6688aa";
 
-            // Parse hex color to RGB for shading
+            // Parse hex color to RGB
             const r = parseInt(baseColor.slice(1, 3), 16);
             const g = parseInt(baseColor.slice(3, 5), 16);
             const b = parseInt(baseColor.slice(5, 7), 16);
 
-            // Top face (lightest)
-            ctx.fillStyle = `rgb(${Math.min(255, r + 40)}, ${Math.min(255, g + 40)}, ${Math.min(255, b + 40)})`;
+            // Multiplicative shading — proportional contrast regardless of base color
+            const shade = (v, f) => Math.min(255, Math.max(0, Math.round(v * f)));
+
+            // Top face (brightest — lit from above)
+            ctx.fillStyle = `rgb(${shade(r,1.35)},${shade(g,1.35)},${shade(b,1.35)})`;
             ctx.beginPath();
             ctx.moveTo(p[4].sx, p[4].sy);
             ctx.lineTo(p[5].sx, p[5].sy);
@@ -142,18 +178,18 @@ export default function App() {
             ctx.closePath();
             ctx.fill();
 
-            // Right face (medium)
-            ctx.fillStyle = `rgb(${Math.max(0, r - 20)}, ${Math.max(0, g - 20)}, ${Math.max(0, b - 20)})`;
+            // Front face / y=y wall (medium — partially lit)
+            ctx.fillStyle = `rgb(${shade(r,0.78)},${shade(g,0.78)},${shade(b,0.78)})`;
             ctx.beginPath();
-            ctx.moveTo(p[1].sx, p[1].sy);
+            ctx.moveTo(p[0].sx, p[0].sy);
+            ctx.lineTo(p[1].sx, p[1].sy);
             ctx.lineTo(p[5].sx, p[5].sy);
-            ctx.lineTo(p[6].sx, p[6].sy);
-            ctx.lineTo(p[2].sx, p[2].sy);
+            ctx.lineTo(p[4].sx, p[4].sy);
             ctx.closePath();
             ctx.fill();
 
-            // Left face (darkest)
-            ctx.fillStyle = `rgb(${Math.max(0, r - 50)}, ${Math.max(0, g - 50)}, ${Math.max(0, b - 50)})`;
+            // Left face / x=x wall (darkest — in shadow)
+            ctx.fillStyle = `rgb(${shade(r,0.52)},${shade(g,0.52)},${shade(b,0.52)})`;
             ctx.beginPath();
             ctx.moveTo(p[0].sx, p[0].sy);
             ctx.lineTo(p[4].sx, p[4].sy);
@@ -162,20 +198,13 @@ export default function App() {
             ctx.closePath();
             ctx.fill();
 
-            // Edges
-            ctx.strokeStyle = "rgba(0,0,0,0.15)";
+            // Silhouette outline — defines edges between faces clearly
+            ctx.strokeStyle = "rgba(0,0,0,0.35)";
             ctx.lineWidth = 1;
-            // Top edges
             ctx.beginPath();
-            ctx.moveTo(p[4].sx, p[4].sy); ctx.lineTo(p[5].sx, p[5].sy);
-            ctx.lineTo(p[6].sx, p[6].sy); ctx.lineTo(p[7].sx, p[7].sy);
-            ctx.closePath();
-            ctx.stroke();
-            // Vertical edges
-            ctx.beginPath();
-            ctx.moveTo(p[0].sx, p[0].sy); ctx.lineTo(p[4].sx, p[4].sy);
-            ctx.moveTo(p[1].sx, p[1].sy); ctx.lineTo(p[5].sx, p[5].sy);
-            ctx.moveTo(p[2].sx, p[2].sy); ctx.lineTo(p[6].sx, p[6].sy);
+            ctx.moveTo(p[4].sx, p[4].sy); ctx.lineTo(p[5].sx, p[5].sy); // top-front ridge
+            ctx.moveTo(p[4].sx, p[4].sy); ctx.lineTo(p[7].sx, p[7].sy); // top-left ridge
+            ctx.moveTo(p[0].sx, p[0].sy); ctx.lineTo(p[4].sx, p[4].sy); // front-left vertical
             ctx.stroke();
         }
 

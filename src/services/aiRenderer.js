@@ -51,37 +51,56 @@ export function buildScenePrompt(components, sceneNotes, hasReferenceImage = fal
 
     const visibleComps = components.filter(c => c.visible !== false);
 
+    // Build detailed component descriptions with exact positions and sizes
     const compDescs = visibleComps
         .map(c => {
-            let desc = `• "${c.name}"`;
-            if (c.material && c.material !== "Custom") desc += ` (${c.material})`;
-            if (c.notes) desc += ` — ${c.notes}`;
+            let desc = `• "${c.name}" — ${c.width}ft wide × ${c.length}ft deep × ${c.height}ft tall, at position (${c.x}, ${c.y})`;
+            if (c.material && c.material !== "Custom") desc += `, material: ${c.material}`;
+            if (c.notes) desc += `. ${c.notes}`;
             return desc;
         }).join("\n");
 
+    // Calculate scene extents for context
+    const minX = Math.min(...visibleComps.map(c => c.x));
+    const minY = Math.min(...visibleComps.map(c => c.y));
+    const maxX = Math.max(...visibleComps.map(c => c.x + c.width));
+    const maxY = Math.max(...visibleComps.map(c => c.y + c.length));
+    const sceneW = (maxX - minX).toFixed(0);
+    const sceneD = (maxY - minY).toFixed(0);
+
     if (hasReferenceImage) {
-        return `Transform this layout diagram into a photorealistic architectural visualization.
+        return `You are an architectural visualization renderer. The attached image is a STRICT LAYOUT BLUEPRINT showing the exact positions and sizes of all components from an elevated isometric angle.
 
-The attached image shows the spatial layout and arrangement of components. Preserve the exact positions, sizes, and spatial relationships shown.
+YOUR #1 PRIORITY: Every object in your output MUST be in THE SAME POSITION, at THE SAME RELATIVE SIZE, and in THE SAME ARRANGEMENT as shown in the blueprint image. Do NOT rearrange, reposition, resize, or omit any object. The spatial layout is sacred — match it exactly.
 
-${sceneNotes || "This is an outdoor test facility with flat terrain, clear sky, and natural daylight."}
+SCENE CONTEXT:
+${sceneNotes || "Outdoor test facility on flat cleared terrain, natural daylight."}
 
-The scene contains these components:
+TOTAL SITE BOUNDARY: approximately ${sceneW}ft × ${sceneD}ft (this is the outer boundary of the site — the ground is natural terrain: grass, dirt, or sandy soil UNLESS a component explicitly specifies a paved/concrete/gravel surface)
+
+EXACT COMPONENT COUNT: ${visibleComps.length}. There are EXACTLY ${visibleComps.length} distinct objects in this scene. Each object below appears EXACTLY ONCE — do NOT duplicate any of them. If a component appears in this list only once, render it only once.
+
+COMPONENTS (each appears exactly once):
 ${compDescs}
 
-IMPORTANT INSTRUCTIONS:
-- Keep the same layout, positions, and relative sizes as shown in the reference image
-- Make everything photorealistic — real materials, textures, lighting, shadows
-- DO NOT add any text, labels, dimensions, or annotations to the image
-- DO NOT add measurement lines or dimension markers
-- Natural outdoor environment with appropriate terrain and vegetation
-- Elevated camera angle, looking across the full scene`;
+RENDERING RULES:
+1. COUNT ENFORCEMENT: Render EXACTLY ${visibleComps.length} objects — one for each component listed above. Never duplicate a component.
+2. LAYOUT FIDELITY: Match the reference image layout EXACTLY. Same camera angle, same relative positions, same proportions. If a component is in the top-left of the blueprint, it must be in the top-left of your render.
+3. COMPONENT DETAILS: Each component's name describes what it is. Honor the name — a "Blast Plate" is a single large vertical blast deflector wall, a "Gravel Area" is a flat gravel surface at ground level, etc. Use the component notes when provided.
+4. MATERIALS: Replace the solid-colored blocks with photorealistic versions — real concrete, real steel, real gravel, real materials with weathering and texture.
+5. LIGHTING: Natural outdoor daylight with soft shadows. Golden-hour or midday feel.
+6. ENVIRONMENT: Appropriate terrain and vegetation around the site. Do not let vegetation obscure the components.
+7. CAMERA: Match the elevated isometric perspective from the reference image. Show the full site.
+8. NO TEXT: Do not add any text, labels, dimensions, annotations, or watermarks.
+9. NO EXTRAS: Do not add objects, vehicles, or structures that are not in the component list above.`;
     }
 
     // No reference image — text-only prompt
     return `Generate a photorealistic architectural visualization of this facility.
 
 ${sceneNotes || "Outdoor test facility on flat terrain, clear sky, natural daylight."}
+
+Scene footprint: approximately ${sceneW}ft × ${sceneD}ft
 
 The scene contains:
 ${compDescs}
@@ -140,6 +159,11 @@ export async function generateSceneRender(prompt, config, referenceImageDataUrl 
     const body = {
         contents: [{ parts }],
         generationConfig,
+        systemInstruction: {
+            parts: [{
+                text: "You are a precision architectural renderer. When given a layout blueprint image and a component list, you MUST reproduce the EXACT spatial arrangement — same positions, same sizes, same camera perspective. CRITICAL: Each object in the component list appears EXACTLY ONCE. Never duplicate a component. Never add objects not in the list. Your output should look like a photograph taken from the same angle as the blueprint, with every object in its correct location and appearing exactly the number of times specified. Layout accuracy and object count accuracy are more important than artistic creativity."
+            }]
+        },
     };
 
     const response = await fetch(url, {
